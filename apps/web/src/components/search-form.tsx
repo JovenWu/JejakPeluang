@@ -22,7 +22,7 @@ export function SearchForm({ category, q }: SearchFormProps): JSX.Element {
           defaultValue={q}
           id="pencarian"
           name="q"
-          placeholder="Cari judul atau penerbit"
+          placeholder="Cari judul peluang"
           type="search"
         />
       </div>

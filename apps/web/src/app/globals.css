@@ -5,7 +5,7 @@
   --color-surface: oklch(0.984 0.005 155);
   --color-ink: oklch(0.23 0.015 155);
   --color-ink-soft: oklch(0.42 0.015 155);
-  --color-ink-faint: oklch(0.5 0.012 155);
+  --color-ink-faint: oklch(0.46 0.012 155);
   --color-line: oklch(0.915 0.008 155);
 
   --color-primary: oklch(0.55 0.145 150);
@@ -31,8 +31,6 @@
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-space-grotesk), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
-  --text-sm: 0.64rem;
-  --text-sm--line-height: 1.45;
   --text-sm: 0.8rem;
   --text-sm--line-height: 1.5;
   --text-base: 1rem;

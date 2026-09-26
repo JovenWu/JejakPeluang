@@ -2,10 +2,11 @@ import sys
 from datetime import datetime, timezone
 from os import environ
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from urllib.parse import urlsplit
 from uuid import uuid4
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 from app.models.catalogue import Issuer, IssuerDomain, SourceEvidence, ModerationDecision, Opportunity

@@ -30,7 +30,8 @@ def publish_approved(session, *, issuer_id, evidence_id, source_url, decision_id
         IssuerDomain.domain == host,
         IssuerDomain.verified_at.is_not(None),
     ))
-    if (not domain or not evidence or evidence.issuer_id != issuer_id
+    if (urlsplit(str(source_url)).scheme not in ('http', 'https')
+            or not domain or not evidence or evidence.issuer_id != issuer_id
             or evidence.url != source_url or not decision
             or decision.status != 'approved'
             or decision.source_evidence_id != evidence.id):

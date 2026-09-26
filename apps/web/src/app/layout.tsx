@@ -1,32 +1,36 @@
-import type { Metadata } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
-import type { ReactNode } from "react";
+import type { Metadata } from 'next'
+import { Inter, Space_Grotesk } from 'next/font/google'
+import type { JSX, ReactNode } from 'react'
 
-import { SiteFooter } from "@/components/site-footer";
-import { SiteHeader } from "@/components/site-header";
-import "./globals.css";
+import { SiteFooter } from '@/components/site-footer'
+import { SiteHeader } from '@/components/site-header'
+import './globals.css'
 
 const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
+  subsets: ['latin'],
+  variable: '--font-inter',
+})
 
 const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-space-grotesk",
-  weight: ["500", "600", "700"],
-});
+  subsets: ['latin'],
+  variable: '--font-space-grotesk',
+  weight: ['500', '600', '700'],
+})
 
 export const metadata: Metadata = {
   title: {
-    default: "JejakPeluang: Katalog Peluang Terverifikasi",
-    template: "%s · JejakPeluang",
+    default: 'JejakPeluang: Katalog Peluang Terverifikasi',
+    template: '%s · JejakPeluang',
   },
   description:
-    "Katalog nasional beasiswa, magang, dan kompetisi untuk pelajar Indonesia. Setiap entri diverifikasi moderator dan ditautkan ke sumber aslinya.",
-};
+    'Katalog nasional beasiswa, magang, dan kompetisi untuk pelajar Indonesia. Setiap entri diverifikasi moderator dan ditautkan ke sumber aslinya.',
+}
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export interface RootLayoutProps {
+  children: ReactNode
+}
+
+export default function RootLayout({ children }: RootLayoutProps): JSX.Element {
   return (
     <html
       lang="id"
@@ -41,5 +45,5 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <SiteFooter />
       </body>
     </html>
-  );
+  )
 }

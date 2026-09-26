@@ -50,15 +50,6 @@ export function IconCalendar({ className }: IconProps): JSX.Element {
   )
 }
 
-export function IconCheckCircle({ className }: IconProps): JSX.Element {
-  return (
-    <BaseIcon className={className}>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M8.5 12.2l2.4 2.4 4.6-4.8" />
-    </BaseIcon>
-  )
-}
-
 export function IconExternal({ className }: IconProps): JSX.Element {
   return (
     <BaseIcon className={className}>

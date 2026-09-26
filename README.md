@@ -28,6 +28,19 @@ docker compose -f infra/compose.dev.yml exec api uv run python scripts/seed_e2e.
 
 Web: http://127.0.0.1:3000 — API: http://127.0.0.1:8000 (localhost-only; Postgres stays internal). Set `API_PORT`/`WEB_PORT` in `infra/.env` if those host ports are taken. Stop with `docker compose -f infra/compose.dev.yml down` (`-v` also drops the database volume).
 
+Without Docker, point `DATABASE_URL` at any database (e.g. `sqlite+pysqlite:///./dev.db` for a quick look) and run:
+
+```sh
+cd services/backend && uv run alembic upgrade head && uv run uvicorn app.main:app
+pnpm --filter @jejakpeluang/web dev   # API_INTERNAL_ORIGIN unset → rewrites fall back to http://localhost:8000
+```
+
+Regenerate the shared contract types after the API schema changes (`scripts/export_openapi.py` refreshes `packages/contracts/openapi.json`):
+
+```sh
+pnpm --filter @jejakpeluang/contracts generate
+```
+
 ## Tests
 
 ```sh

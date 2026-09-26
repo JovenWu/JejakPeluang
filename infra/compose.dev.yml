@@ -21,7 +21,7 @@ services:
       DATABASE_URL: postgresql+psycopg://jejakpeluang_test:${TEST_DB_PASSWORD:?set_TEST_DB_PASSWORD}@postgres:5432/jejakpeluang_e2e
     ports: ["127.0.0.1:${API_PORT:-8000}:8000"]
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2)"]
+      test: ["CMD", "uv", "run", "--no-sync", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2)"]
       interval: 5s
       retries: 10
     depends_on:

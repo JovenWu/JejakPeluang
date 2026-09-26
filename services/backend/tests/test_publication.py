@@ -12,6 +12,16 @@ def test_rejects_unverified_domain(session, verified_issuer, official_source, ap
             decision_id=approved_decision.id, fields=valid_fields)
 
 
+def test_rejects_non_http_source_url(session, verified_issuer, official_source,
+        approved_decision, valid_fields):
+    official_source.url = 'ftp://example.org/notice'
+    session.flush()
+    with pytest.raises(InvalidPublication):
+        publish_approved(session, issuer_id=verified_issuer.id,
+            evidence_id=official_source.id, source_url='ftp://example.org/notice',
+            decision_id=approved_decision.id, fields=valid_fields)
+
+
 def test_rejects_missing_approval(session, verified_issuer, official_source, valid_fields):
     with pytest.raises(InvalidPublication):
         publish_approved(session, issuer_id=verified_issuer.id,
