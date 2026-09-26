@@ -43,7 +43,7 @@ def create_submission(request: Request,
 
 @router.get('/{ref}', response_model=SubmissionStatus)
 def get_submission_status(ref: str, request: Request,
-    x_receipt_token: str | None = Header(None),
+    x_receipt_token: str = Header(),
     session: Session = Depends(get_session),
     limiter: RateLimiter = Depends(get_rate_limiter)):
     net_hash = client_net_hash(request)

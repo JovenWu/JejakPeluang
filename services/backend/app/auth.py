@@ -21,6 +21,8 @@ from app.models.auth import AccessToken, User
 from app.security import AUTH_COOKIE_NAME
 
 SECRET = environ.get('AUTH_SECRET', 'jp-dev-auth-secret-change-me')
+ACCESS_TOKEN_TTL_SECONDS = int(
+    environ.get('ACCESS_TOKEN_TTL_SECONDS', str(8 * 3600)))
 password_helper = PasswordHelper(PasswordHash((Argon2Hasher(),)))
 
 
@@ -170,7 +172,8 @@ cookie_transport = CookieTransport(cookie_name=AUTH_COOKIE_NAME,
 def get_database_strategy(
     token_db: AccessTokenDatabase = Depends(get_access_token_db),
 ) -> DatabaseStrategy:
-    return DatabaseStrategy(token_db)
+    return DatabaseStrategy(token_db,
+        lifetime_seconds=ACCESS_TOKEN_TTL_SECONDS)
 
 
 auth_backend = AuthenticationBackend(name='cookie', transport=cookie_transport,

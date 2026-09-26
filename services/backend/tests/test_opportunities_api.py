@@ -10,7 +10,8 @@ def test_list_excludes_drafts_and_expired(client, make_entry):
     assert response.status_code == 200
     assert [item['slug'] for item in response.json()['items']] == [approved.slug]
     assert response.json()['total'] == 1
-    assert response.json()['items'][0]['ai_source_match'] is False
+    # null = no screening signal yet; the badge only appears on real judgments
+    assert response.json()['items'][0]['ai_source_match'] is None
 
 
 def test_missing_detail_is_404(client):

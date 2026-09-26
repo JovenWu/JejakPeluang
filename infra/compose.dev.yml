@@ -1,5 +1,20 @@
 name: jejakpeluang-dev
 
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql+psycopg://jejakpeluang_test:${TEST_DB_PASSWORD:?set_TEST_DB_PASSWORD}@postgres:5432/jejakpeluang_e2e
+  UPLOAD_DIR: /data/uploads
+  AUTH_SECRET: ${AUTH_SECRET:-jp-dev-auth-secret-change-me}
+  COOKIE_SECURE: ${COOKIE_SECURE:-false}
+  RATE_LIMIT_SALT: ${RATE_LIMIT_SALT:-jp-dev-rate-limit-salt}
+  REDIS_URL: redis://redis:6379/0
+  JOB_BROKER: redis
+  RATE_LIMITER: ${RATE_LIMITER:-memory}
+  APP_ENV: ${APP_ENV:-development}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-6-luna}
+  TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
+  TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+
 services:
   postgres:
     image: ${POSTGRES_IMAGE:?set_reviewed_POSTGRES_IMAGE_digest}
@@ -18,11 +33,7 @@ services:
       args:
         UV_IMAGE: ${UV_IMAGE:?set_reviewed_UV_IMAGE_digest}
     environment:
-      DATABASE_URL: postgresql+psycopg://jejakpeluang_test:${TEST_DB_PASSWORD:?set_TEST_DB_PASSWORD}@postgres:5432/jejakpeluang_e2e
-      UPLOAD_DIR: /data/uploads
-      AUTH_SECRET: ${AUTH_SECRET:-jp-dev-auth-secret-change-me}
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      RATE_LIMIT_SALT: ${RATE_LIMIT_SALT:-jp-dev-rate-limit-salt}
+      <<: *backend-env
     volumes:
       - uploads:/data/uploads
     ports: ["127.0.0.1:${API_PORT:-8000}:8000"]
@@ -33,6 +44,48 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+  redis:
+    image: ${REDIS_IMAGE:?set_reviewed_REDIS_IMAGE_digest}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args:
+        UV_IMAGE: ${UV_IMAGE:?set_reviewed_UV_IMAGE_digest}
+    command: ["uv", "run", "python", "-m", "app.worker"]
+    environment:
+      <<: *backend-env
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+  sweeper:
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args:
+        UV_IMAGE: ${UV_IMAGE:?set_reviewed_UV_IMAGE_digest}
+    command: ["sh", "-c", "while true; do uv run --no-sync python scripts/sweep_retention.py; sleep ${SWEEP_INTERVAL_SECONDS:-3600}; done"]
+    environment:
+      <<: *backend-env
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
   web:
     build:
       context: ..

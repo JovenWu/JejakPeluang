@@ -17,6 +17,14 @@ from app.services.catalogue import OpportunityFields, publish_approved
 NOW = datetime(2026, 9, 1, tzinfo=timezone.utc)
 
 
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    from app.security import rate_limiter
+    rate_limiter.reset()
+    yield
+    rate_limiter.reset()
+
+
 @pytest.fixture
 def session():
     engine = create_engine('sqlite+pysqlite:///:memory:',

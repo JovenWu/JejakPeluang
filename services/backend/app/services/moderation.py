@@ -4,6 +4,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.auth import User
@@ -13,12 +14,12 @@ from app.models.intake import (CommunityReport, ScreeningRun, Submission,
     Upload)
 from app.schemas.moderation import DecisionFields
 from app.services.catalogue import (InvalidPublication, OpportunityFields,
-    publish_approved)
+    publish_approved, publish_private_confirmed)
 from app.services.submissions import (SubmissionError, upload_root,
     validate_url)
 
 DECISION_PURGE_DAYS = 7
-TERMINAL_STATES = {'rejected', 'expired', 'closed_unreviewed'}
+TERMINAL_STATES = {'rejected', 'expired', 'closed_unreviewed', 'published'}
 SLUG_FALLBACK = 'peluang'
 
 _SLUG_RE = re.compile(r'[^a-z0-9]+')
@@ -126,6 +127,9 @@ def detail_view(session: Session, submission: Submission) -> dict:
             'provider_version': run.provider_version,
             'model_version': run.model_version,
             'schema_version': run.schema_version,
+            'result_json': run.result_json,
+            'error': run.error,
+            'finished_at': run.finished_at,
             'created_at': run.created_at,
         } if run else None,
         'decisions': [{
@@ -159,6 +163,16 @@ def upload_file_path(upload: Upload) -> Path | None:
     return candidate
 
 
+def _issuer_by_name(session: Session, name: str) -> Issuer:
+    issuer = session.scalar(select(Issuer).where(
+        func.lower(Issuer.name) == func.lower(name)))
+    if issuer is None:
+        issuer = Issuer(name=name)
+        session.add(issuer)
+        session.flush()
+    return issuer
+
+
 def _resolve_issuer(session: Session, *, host: str,
         issuer_name: str | None) -> tuple[Issuer, IssuerDomain | None]:
     domain = session.scalar(
@@ -167,20 +181,11 @@ def _resolve_issuer(session: Session, *, host: str,
         name = issuer_name.strip()
         if not name:
             raise ModerationError(422, 'issuer_name must not be blank')
-        issuer = session.scalar(
-            select(Issuer).where(Issuer.name == name))
-        if issuer is None:
-            issuer = Issuer(name=name)
-            session.add(issuer)
-            session.flush()
+        issuer = _issuer_by_name(session, name)
     elif domain is not None:
         issuer = session.get(Issuer, domain.issuer_id)
     else:
-        issuer = session.scalar(select(Issuer).where(Issuer.name == host))
-        if issuer is None:
-            issuer = Issuer(name=host)
-            session.add(issuer)
-            session.flush()
+        issuer = _issuer_by_name(session, host)
     return issuer, domain
 
 
@@ -200,14 +205,46 @@ def _resolve_slug(session: Session, fields: DecisionFields) -> str:
     return slug
 
 
+def _latest_ai_source_match(session: Session,
+        submission: Submission) -> bool | None:
+    """Read the badge flag off the newest completed screening run, if any."""
+    run = session.scalar(select(ScreeningRun).where(
+        ScreeningRun.submission_id == submission.id).order_by(
+        ScreeningRun.created_at.desc()).limit(1))
+    if run is None or not isinstance(run.result_json, dict):
+        return None
+    match = run.result_json.get('ai_source_match')
+    return match if isinstance(match, bool) else None
+
+
 def _approve(session: Session, *, submission: Submission, moderator: User,
         reason: str | None, fields: DecisionFields | None,
         now: datetime) -> tuple[ModerationDecision, Opportunity]:
+    if fields is None:
+        raise ModerationError(422, 'Approval requires opportunity fields')
+    opportunity_fields = OpportunityFields(slug=_resolve_slug(session, fields),
+        title=fields.title, category=fields.category,
+        description=fields.description, eligibility=fields.eligibility,
+        region=fields.region, deadline=fields.deadline, checked_at=now)
+    if fields.trust_basis == 'issuer_confirmed_private':
+        if fields.issuer_name is None:
+            raise ModerationError(422,
+                'issuer_confirmed_private requires issuer_name')
+        name = fields.issuer_name.strip()
+        if not name:
+            raise ModerationError(422, 'issuer_name must not be blank')
+        issuer = _issuer_by_name(session, name)
+        decision = ModerationDecision(source_evidence_id=None,
+            submission_id=submission.id, actor_id=moderator.id,
+            status='approved', reason=reason, decided_at=now)
+        session.add(decision)
+        session.flush()
+        opportunity = publish_private_confirmed(session, issuer_id=issuer.id,
+            decision_id=decision.id, fields=opportunity_fields)
+        return decision, opportunity
     if not submission.submitted_url:
         raise ModerationError(422,
             'Approval requires a submitted url as public source')
-    if fields is None:
-        raise ModerationError(422, 'Approval requires opportunity fields')
     url = validate_url(submission.submitted_url)
     if url is None:
         raise ModerationError(422, 'Submitted url is not usable as source')
@@ -234,11 +271,22 @@ def _approve(session: Session, *, submission: Submission, moderator: User,
     session.flush()
     opportunity = publish_approved(session, issuer_id=issuer.id,
         evidence_id=evidence.id, source_url=url, decision_id=decision.id,
-        fields=OpportunityFields(slug=_resolve_slug(session, fields),
-            title=fields.title, category=fields.category,
-            description=fields.description, eligibility=fields.eligibility,
-            region=fields.region, deadline=fields.deadline, checked_at=now))
+        fields=opportunity_fields,
+        ai_source_match=_latest_ai_source_match(session, submission))
     return decision, opportunity
+
+
+def _shorten_upload_retention(session: Session, submission: Submission,
+        until: datetime) -> None:
+    """Couple upload retention to the (shortened) submission purge date."""
+    uploads = session.scalars(select(Upload).where(
+        Upload.submission_id == submission.id)).all()
+    for upload in uploads:
+        existing = upload.delete_after
+        if existing is not None and existing.tzinfo is None:
+            existing = existing.replace(tzinfo=timezone.utc)
+        if existing is None or existing > until:
+            upload.delete_after = until
 
 
 def decide(session: Session, *, submission: Submission, moderator: User,
@@ -267,7 +315,7 @@ def decide(session: Session, *, submission: Submission, moderator: User,
         if action == 'approved':
             decision, opportunity = _approve(session, submission=submission,
                 moderator=moderator, reason=reason, fields=fields, now=now)
-            submission.state = 'review_pending'
+            submission.state = 'published'
         else:
             decision = ModerationDecision(source_evidence_id=None,
                 submission_id=submission.id, actor_id=moderator.id,
@@ -280,6 +328,8 @@ def decide(session: Session, *, submission: Submission, moderator: User,
                     else 'rejected')
                 submission.purge_after = now + timedelta(
                     days=DECISION_PURGE_DAYS)
+                _shorten_upload_retention(session, submission,
+                    submission.purge_after)
         submission.updated_at = now
         session.add(AuditEvent(actor_id=moderator.id,
             action='moderation_decision', opportunity_id=None,
@@ -297,6 +347,12 @@ def decide(session: Session, *, submission: Submission, moderator: User,
     except InvalidPublication as exc:
         session.rollback()
         raise ModerationError(422, str(exc))
+    except IntegrityError:
+        # The partial unique index on approved decisions is the backstop for
+        # a concurrent double-approve; surface it as a conflict, not a 500.
+        session.rollback()
+        raise ModerationError(409,
+            'Submission already has an approved decision')
     except Exception:
         session.rollback()
         raise

@@ -22,7 +22,8 @@ class InvalidPublication(ValueError):
     pass
 
 
-def publish_approved(session, *, issuer_id, evidence_id, source_url, decision_id, fields: OpportunityFields):
+def publish_approved(session, *, issuer_id, evidence_id, source_url, decision_id,
+        fields: OpportunityFields, ai_source_match: bool | None = None):
     evidence = session.get(SourceEvidence, evidence_id)
     decision = session.get(ModerationDecision, decision_id) if decision_id else None
     host = urlsplit(str(source_url)).hostname
@@ -41,7 +42,33 @@ def publish_approved(session, *, issuer_id, evidence_id, source_url, decision_id
         source_evidence_id=evidence.id, moderation_decision_id=decision.id,
         source_url=source_url,
         verified_at=decision.decided_at, trust_basis='public_source',
-        status='published', **fields.model_dump())
+        status='published', ai_source_match=ai_source_match,
+        **fields.model_dump())
+    session.add(item)
+    session.flush()
+    session.add(AuditEvent(actor_id=decision.actor_id, action='publish_opportunity',
+        opportunity_id=item.id, created_at=decision.decided_at))
+    session.flush()
+    return item
+
+
+def publish_private_confirmed(session, *, issuer_id, decision_id,
+        fields: OpportunityFields):
+    """Publish an issuer-confirmed private notice.
+
+    Same gate as publish_approved — a human 'approved' decision is required —
+    but the trust basis is a moderator-attested private confirmation, so no
+    domain, evidence, or source_url is attached (or ever surfaced).
+    """
+    decision = session.get(ModerationDecision, decision_id) if decision_id else None
+    if not decision or decision.status != 'approved':
+        raise InvalidPublication('Human approval required')
+    item = Opportunity(issuer_id=issuer_id, issuer_domain_id=None,
+        source_evidence_id=None, moderation_decision_id=decision.id,
+        source_url=None,
+        verified_at=decision.decided_at,
+        trust_basis='issuer_confirmed_private', status='published',
+        ai_source_match=None, **fields.model_dump())
     session.add(item)
     session.flush()
     session.add(AuditEvent(actor_id=decision.actor_id, action='publish_opportunity',
@@ -53,7 +80,7 @@ def publish_approved(session, *, issuer_id, evidence_id, source_url, decision_id
 def reviewed_query():
     return (select(Opportunity)
         .join(ModerationDecision, Opportunity.moderation_decision_id == ModerationDecision.id)
-        .join(IssuerDomain, Opportunity.issuer_domain_id == IssuerDomain.id)
+        .outerjoin(IssuerDomain, Opportunity.issuer_domain_id == IssuerDomain.id)
         .options(selectinload(Opportunity.issuer))
         .where(ModerationDecision.status == 'approved'))
 

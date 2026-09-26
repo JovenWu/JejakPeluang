@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.schemas.opportunity import Category
+from app.schemas.opportunity import Category, TrustBasis
 
 DecisionKind = Literal['approved', 'needs_more_evidence', 'rejected', 'expire']
 ReportCategory = Literal['scam_suspect', 'deadline_wrong', 'link_broken',
@@ -23,6 +23,9 @@ class DecisionFields(BaseModel):
     slug: str | None = Field(None, max_length=160,
         pattern=r'^[a-z0-9]+(-[a-z0-9]+)*$')
     issuer_name: str | None = Field(None, min_length=1, max_length=160)
+    # 'issuer_confirmed_private': moderator attests issuer identity privately;
+    # no public source_url is published. Requires issuer_name.
+    trust_basis: TrustBasis = 'public_source'
 
 
 class DecisionRequest(BaseModel):
@@ -69,6 +72,9 @@ class ScreeningRunMeta(BaseModel):
     provider_version: str | None
     model_version: str | None
     schema_version: str | None
+    result_json: dict | None
+    error: str | None
+    finished_at: datetime | None
     created_at: datetime
 
 
