@@ -41,6 +41,29 @@ Regenerate the shared contract types after the API schema changes (`scripts/expo
 pnpm --filter @jejakpeluang/contracts generate
 ```
 
+## Intake & moderation (backend)
+
+Environment variables the API reads (all ship with dev-only defaults; set real values anywhere else):
+
+- `UPLOAD_DIR` — where staged guest uploads live (`./uploads` locally, `/data/uploads` in the dev compose stack, backed by the `uploads` named volume). Uploads are never served by the web container; moderators stream them through `GET /api/v1/moderation/submissions/{id}/uploads/{upload_id}`.
+- `AUTH_SECRET` — signs fastapi-users reset/verify tokens.
+- `COOKIE_SECURE` — `false` by default so the session cookie works over local http; set `true` behind https.
+- `RATE_LIMIT_SALT` — salts the client-net and login-attempt hash keys so IPs/emails are never stored raw.
+
+Create a moderator account (invite-only; there is no self-registration):
+
+```sh
+cd services/backend && uv run python scripts/create_moderator.py <email>
+# prints a generated password; pass --password to set one explicitly
+```
+
+Known stubs and caveats:
+
+- Rate limiting is `InMemoryRateLimiter` — per-process, not shared across workers. A Redis backend is the planned upgrade and slots in through the `RateLimiter` seam (`app.security.get_rate_limiter`) without touching call sites.
+- Access tokens are created with `lifetime_seconds=None` — sessions live until logout deletes the row; there is no expiry sweep.
+- Outbox `dispatch_pending` (`app.services.outbox`) ships with a `LoggingPublisher` stub that only logs; a real broker publisher arrives with the Celery screening plan.
+- The uploads sweeper must cascade deletion off the submission row: purging a submission deletes its upload files under `UPLOAD_DIR` together with their `upload` rows.
+
 ## Tests
 
 ```sh
