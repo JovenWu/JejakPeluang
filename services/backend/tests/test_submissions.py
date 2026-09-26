@@ -44,6 +44,25 @@ def post(client, **kwargs):
     return client.post('/api/v1/submissions', **kwargs)
 
 
+def test_submit_context_at_limit_accepted(client, session, upload_dir):
+    limit = submissions_service.MAX_CONTEXT_LENGTH
+    response = post(client, data={'url': 'https://example.org/program',
+        'context': 'x' * limit})
+    assert response.status_code == 202
+    ref = response.json()['ref']
+    submission = session.scalar(
+        select(Submission).where(Submission.ref == ref))
+    assert submission.context == 'x' * limit
+
+
+def test_submit_context_over_limit_rejected(client, session, upload_dir):
+    limit = submissions_service.MAX_CONTEXT_LENGTH
+    response = post(client, data={'url': 'https://example.org/program',
+        'context': 'x' * (limit + 1)})
+    assert response.status_code == 422
+    assert session.scalar(select(func.count()).select_from(Submission)) == 0
+
+
 def test_submit_url_only_returns_202_and_rows(client, session, upload_dir):
     response = post(client, data={'url': 'https://example.org/program',
         'context': 'Sumber resmi', 'contact_email': 'guest@example.org'})

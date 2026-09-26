@@ -9,9 +9,11 @@ import logging
 from datetime import datetime, timedelta, timezone
 from os import environ
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.auth import ACCESS_TOKEN_TTL_SECONDS
+from app.models.auth import AccessToken
 from app.models.intake import ScreeningRun, Submission, Upload
 from app.services.moderation import upload_file_path
 from app.services.submissions import upload_root
@@ -20,6 +22,7 @@ STALE_HOURS_DEFAULT = 72
 STAGING_MAX_AGE_HOURS_DEFAULT = 24
 
 _ACTIVE_STATES = ('queued', 'processing')
+_OPEN_STATES = ('received', 'queued', 'processing', 'review_pending')
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +109,17 @@ def _sweep_submissions(session: Session, now: datetime, counts: dict) -> None:
                     changed = True
             if changed:
                 counts['submissions_redacted'] += 1
+            if submission.state in _OPEN_STATES:
+                # The pending window ended unmoderated — close it alongside
+                # the redaction so 'review_pending' cannot linger forever.
+                submission.state = 'closed_unreviewed'
+                submission.updated_at = now
+                for run in runs:
+                    if run.state in _ACTIVE_STATES:
+                        run.state = 'failed'
+                        run.error = 'retention window expired'
+                        run.finished_at = now
+                counts['stale_closed'] += 1
             session.commit()
         except Exception:
             session.rollback()
@@ -139,6 +153,19 @@ def _sweep_stale(session: Session, now: datetime, stale_hours: int,
             session.rollback()
             counts['errors'] += 1
             logger.warning('failed to close stale submission %s', ref)
+
+
+def _sweep_tokens(session: Session, now: datetime, counts: dict) -> None:
+    cutoff = now - timedelta(seconds=ACCESS_TOKEN_TTL_SECONDS)
+    try:
+        result = session.execute(delete(AccessToken).where(
+            AccessToken.created_at < cutoff))
+        session.commit()
+        counts['tokens_deleted'] += result.rowcount or 0
+    except Exception:
+        session.rollback()
+        counts['errors'] += 1
+        logger.warning('failed to sweep expired access tokens')
 
 
 def _sweep_staging(now: datetime, max_age_hours: int, counts: dict) -> None:
@@ -176,10 +203,11 @@ def sweep_expired(session: Session, *, now: datetime | None = None,
         'STAGING_MAX_AGE_HOURS', STAGING_MAX_AGE_HOURS_DEFAULT)
     counts = {'uploads_deleted': 0, 'submissions_redacted': 0,
         'runs_redacted': 0, 'stale_closed': 0, 'staging_deleted': 0,
-        'errors': 0}
+        'tokens_deleted': 0, 'errors': 0}
     _sweep_uploads(session, now, counts)
     _sweep_submissions(session, now, counts)
     _sweep_stale(session, now, stale_hours, counts)
+    _sweep_tokens(session, now, counts)
     _sweep_staging(now, staging_max_age_hours, counts)
     logger.info('retention sweep complete: %s', counts)
     return counts

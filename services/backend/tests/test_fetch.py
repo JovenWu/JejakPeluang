@@ -71,7 +71,8 @@ def test_fetch_pins_http_with_host_header_and_no_sni():
 
 @pytest.mark.parametrize('ip', [
     '127.0.0.1', '10.0.0.5', '169.254.169.254', '172.16.0.1', '192.168.1.1',
-    '::1', '::ffff:127.0.0.1', '100.64.0.1', '203.0.113.1'])
+    '::1', '::ffff:127.0.0.1', '100.64.0.1', '203.0.113.1',
+    '64:ff9b::7f00:1', '64:ff9b::a9fe:a9fe', '64:ff9b::c0a8:101'])
 def test_fetch_rejects_non_public_resolved_ips(ip):
     with pytest.raises(FetchError) as exc:
         fetch('http://example.org/', resolver=resolver_for(ip),
@@ -85,6 +86,18 @@ def test_fetch_rejects_when_any_resolved_ip_is_private():
             resolver=resolver_for(PUBLIC_IP, '127.0.0.1'),
             transport=never_transport())
     assert exc.value.kind == 'forbidden_host'
+
+
+def test_fetch_allows_nat64_wrapped_public_ip():
+    seen = []
+
+    def handler(request):
+        seen.append(request)
+        return httpx.Response(200, content=b'ok')
+
+    fetch('http://example.org/', resolver=resolver_for('64:ff9b::808:808'),
+        transport=httpx.MockTransport(handler))
+    assert seen[0].url.host == '64:ff9b::808:808'
 
 
 def test_fetch_allows_public_ip_literal_without_dns():

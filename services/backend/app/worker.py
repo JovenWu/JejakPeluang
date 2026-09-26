@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from os import environ
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.db import engine
@@ -31,9 +31,12 @@ MAX_RUN_ATTEMPTS = 3
 
 
 def process_run(session: Session, run: ScreeningRun, clients) -> None:
-    """Run one screening idempotently; skips finished or exhausted runs."""
-    if run.state == 'complete':
-        return
+    """Run one screening idempotently; skips finished or exhausted runs.
+
+    The conditional UPDATE is the claim: two workers racing the same run id
+    get exactly one winner — the loser sees rowcount 0 and moves on. The claim
+    commits immediately so the loser never waits on the winner's pipeline.
+    """
     if (run.attempts or 0) >= MAX_RUN_ATTEMPTS:
         if run.state != 'failed':
             run.state = 'failed'
@@ -41,6 +44,15 @@ def process_run(session: Session, run: ScreeningRun, clients) -> None:
             run.finished_at = datetime.now(timezone.utc)
             session.commit()
         return
+    claimed = session.execute(update(ScreeningRun).where(
+        ScreeningRun.id == run.id,
+        ScreeningRun.state.in_(('queued', 'failed'))
+    ).values(state='processing'),
+        execution_options={'synchronize_session': False}).rowcount
+    session.commit()
+    if not claimed:
+        return
+    session.refresh(run)
     fetcher, searcher, llm, judge = clients
     try:
         run_screening(session, run, fetcher=fetcher, searcher=searcher,
@@ -72,6 +84,21 @@ def sweep(session: Session, redis_client, publisher, clients) -> int:
                 run.error = 'max attempts exceeded'
                 run.finished_at = now
             continue
+        if run.state == 'processing':
+            # Atomically bounce a dead run back to 'queued' — a live worker
+            # still holding it keeps the row because its state no longer
+            # matches the WHERE clause mid-update.
+            bounced = session.execute(update(ScreeningRun).where(
+                ScreeningRun.id == run.id,
+                ScreeningRun.state == 'processing',
+                ScreeningRun.started_at
+                < now - timedelta(seconds=STALE_PROCESSING_SECONDS)
+            ).values(state='queued'),
+                execution_options={'synchronize_session': False}).rowcount
+            session.commit()
+            if not bounced:
+                continue
+            session.refresh(run)
         if redis_client is not None:
             push_run_id(redis_client, run.id)
             requeued += 1

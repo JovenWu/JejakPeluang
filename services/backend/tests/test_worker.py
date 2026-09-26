@@ -67,6 +67,20 @@ def test_process_run_executes_queued_run(session):
     assert submission.state == 'review_pending'
 
 
+def test_process_run_does_not_reclaim_processing_run(session):
+    # Another worker holds this run — the claim UPDATE excludes 'processing',
+    # so a second worker must not double-execute it.
+    submission, run = make_submission(session)
+    run.state = 'processing'
+    run.started_at = datetime.now(timezone.utc)
+    session.commit()
+    llm = FakeLLM()
+    process_run(session, run, _clients(llm=llm))
+    assert llm.extract_calls == 0
+    assert run.state == 'processing'
+    assert run.attempts == 0
+
+
 def test_process_run_marks_failed_after_max_attempts(session):
     submission, run = make_submission(session)
     run.attempts = MAX_RUN_ATTEMPTS
@@ -122,6 +136,20 @@ def test_sweep_fails_stale_processing_run_at_max_attempts(session):
     sweep(session, client, RedisPublisher(client=client), _clients())
     assert run.state == 'failed'
     assert client.items == []
+
+
+def test_sweep_requeues_stale_processing_run(session):
+    submission, run = make_submission(session)
+    run.state = 'processing'
+    run.attempts = 1
+    run.started_at = (datetime.now(timezone.utc)
+        - timedelta(seconds=RUN_DEADLINE_SECONDS + 600))
+    session.commit()
+    client = FakeRedis()
+    sweep(session, client, RedisPublisher(client=client), _clients())
+    session.refresh(run)
+    assert run.state == 'queued'
+    assert (QUEUE_KEY, str(run.id)) in client.items
 
 
 def test_sweep_processes_inline_without_broker(session):

@@ -10,8 +10,8 @@ from app.db import get_session
 from app.models.intake import Submission
 from app.schemas.submission import SubmissionCreated, SubmissionStatus
 from app.security import RateLimiter, client_net_hash, get_rate_limiter
-from app.services.submissions import (FileScanner, SubmissionError,
-    get_scanner, intake_submission, status_view)
+from app.services.submissions import (MAX_CONTEXT_LENGTH, FileScanner,
+    SubmissionError, get_scanner, intake_submission, status_view)
 
 router = APIRouter(prefix='/submissions', tags=['submissions'])
 
@@ -19,7 +19,7 @@ router = APIRouter(prefix='/submissions', tags=['submissions'])
 @router.post('', status_code=202, response_model=SubmissionCreated)
 def create_submission(request: Request,
     url: str | None = Form(None),
-    context: str | None = Form(None),
+    context: str | None = Form(None, max_length=MAX_CONTEXT_LENGTH),
     contact_email: str | None = Form(None),
     files: list[UploadFile] = File(default=[]),
     session: Session = Depends(get_session),

@@ -136,6 +136,68 @@ def test_purged_submission_redacts_pii_keeps_verdicts(session):
     assert result['ai_source_match'] is True
 
 
+def test_review_pending_closed_after_purge_window(session):
+    submission = make_submission(session, state='review_pending',
+        purge_after=NOW - timedelta(days=1), updated_at=NOW)
+    run = make_run(session, submission, state='complete',
+        result_json=result_payload())
+
+    counts = sweep_expired(session, now=NOW)
+
+    assert counts['stale_closed'] == 1
+    assert counts['submissions_redacted'] == 1
+    session.refresh(submission)
+    assert submission.state == 'closed_unreviewed'
+    assert submission.contact_email is None
+    session.refresh(run)
+    assert run.state == 'complete'
+    assert 'submission_text' not in run.result_json
+
+
+@pytest.mark.parametrize('state', ['published', 'rejected', 'expired',
+    'closed_unreviewed'])
+def test_terminal_states_not_reclosed_after_purge(session, state):
+    submission = make_submission(session, state=state,
+        purge_after=NOW - timedelta(days=1), updated_at=NOW)
+
+    sweep_expired(session, now=NOW)
+
+    session.refresh(submission)
+    assert submission.state == state
+
+
+def test_open_submission_close_fails_active_runs(session):
+    submission = make_submission(session, state='review_pending',
+        purge_after=NOW - timedelta(days=1), updated_at=NOW)
+    run = make_run(session, submission, state='processing')
+
+    sweep_expired(session, now=NOW)
+
+    session.refresh(run)
+    assert run.state == 'failed'
+    assert run.error == 'retention window expired'
+
+
+def test_expired_access_tokens_deleted_fresh_kept(session):
+    from app.models.auth import AccessToken, User
+    user = User(email=f'{uuid4().hex[:8]}@example.org',
+        hashed_password='x', is_active=True, is_verified=True,
+        role='moderator')
+    session.add(user)
+    session.commit()
+    expired = AccessToken(token='e' * 43, user_id=user.id,
+        created_at=NOW - timedelta(days=2))
+    fresh = AccessToken(token='f' * 43, user_id=user.id, created_at=NOW)
+    session.add_all([expired, fresh])
+    session.commit()
+
+    counts = sweep_expired(session, now=NOW)
+
+    assert counts['tokens_deleted'] == 1
+    remaining = session.scalars(select(AccessToken)).all()
+    assert [t.token for t in remaining] == ['f' * 43]
+
+
 def test_stale_submission_closed_and_run_failed(session):
     old = NOW - timedelta(hours=STALE_HOURS_DEFAULT + 1)
     submission = make_submission(session, state='queued', updated_at=old)
@@ -213,7 +275,7 @@ def test_second_sweep_is_noop(session, upload_dir):
     second = sweep_expired(session, now=NOW)
     assert second == {'uploads_deleted': 0, 'submissions_redacted': 0,
         'runs_redacted': 0, 'stale_closed': 0, 'staging_deleted': 0,
-        'errors': 0}
+        'tokens_deleted': 0, 'errors': 0}
 
 
 def test_failing_unit_counts_error_and_sweep_continues(session, upload_dir,

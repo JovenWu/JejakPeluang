@@ -2,7 +2,7 @@ import hashlib
 import pytest
 from starlette.requests import Request
 from app.security import (RATE_LIMIT_SALT, InMemoryRateLimiter,
-    client_net_hash)
+    client_net_hash, login_attempt_key)
 
 
 def request_for(host='203.0.113.7', headers=None):
@@ -17,6 +17,78 @@ def test_client_net_hash_is_salted_sha256():
         f'{RATE_LIMIT_SALT}:203.0.113.7'.encode()).hexdigest()
     assert client_net_hash(request) == expected
     assert client_net_hash(request_for('198.51.100.9')) != expected
+
+
+def _hashed(ip: str) -> str:
+    return hashlib.sha256(f'{RATE_LIMIT_SALT}:{ip}'.encode()).hexdigest()
+
+
+def test_xff_used_when_peer_is_trusted_proxy(monkeypatch):
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', '10.0.0.0/8')
+    request = request_for('10.0.0.5',
+        headers={'X-Forwarded-For': '203.0.113.7'})
+    assert client_net_hash(request) == _hashed('203.0.113.7')
+
+
+def test_xff_ignored_when_peer_untrusted(monkeypatch):
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', '10.0.0.0/8')
+    request = request_for('198.51.100.9',
+        headers={'X-Forwarded-For': '203.0.113.7'})
+    assert client_net_hash(request) == _hashed('198.51.100.9')
+
+
+def test_xff_ignored_when_no_trusted_cidrs_configured(monkeypatch):
+    monkeypatch.delenv('TRUSTED_PROXY_CIDRS', raising=False)
+    request = request_for('10.0.0.5',
+        headers={'X-Forwarded-For': '203.0.113.7'})
+    assert client_net_hash(request) == _hashed('10.0.0.5')
+
+
+def test_xff_rightmost_untrusted_hop_wins(monkeypatch):
+    # Chain: client 203.0.113.7 -> edge proxy 10.0.0.9 -> traefik 10.0.0.5
+    # -> app. The rightmost entry belongs to a trusted hop; the first
+    # untrusted-from-the-right is the real client.
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', '10.0.0.0/8')
+    request = request_for('10.0.0.5',
+        headers={'X-Forwarded-For': '203.0.113.7, 10.0.0.9'})
+    assert client_net_hash(request) == _hashed('203.0.113.7')
+
+
+def test_xff_client_spoofed_leftmost_entries_not_used(monkeypatch):
+    # A client may inject XFF; the trusted proxy still appends the real
+    # peer last, so the spoofed value must not win.
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', '10.0.0.0/8')
+    request = request_for('10.0.0.5',
+        headers={'X-Forwarded-For': '1.2.3.4, 203.0.113.7'})
+    assert client_net_hash(request) == _hashed('203.0.113.7')
+
+
+def test_xff_absent_or_garbage_falls_back_to_peer(monkeypatch):
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', '10.0.0.0/8')
+    request = request_for('10.0.0.5')
+    assert client_net_hash(request) == _hashed('10.0.0.5')
+    garbage = request_for('10.0.0.5',
+        headers={'X-Forwarded-For': 'not-an-ip, , '})
+    assert client_net_hash(garbage) == _hashed('10.0.0.5')
+
+
+def test_invalid_trusted_cidr_entry_ignored(monkeypatch):
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', 'bogus,10.0.0.0/8')
+    trusted = request_for('10.0.0.5',
+        headers={'X-Forwarded-For': '203.0.113.7'})
+    assert client_net_hash(trusted) == _hashed('203.0.113.7')
+    untrusted = request_for('198.51.100.9',
+        headers={'X-Forwarded-For': '203.0.113.7'})
+    assert client_net_hash(untrusted) == _hashed('198.51.100.9')
+
+
+def test_forwarded_clients_get_distinct_rate_limit_identities(monkeypatch):
+    monkeypatch.setenv('TRUSTED_PROXY_CIDRS', '10.0.0.0/8')
+    a = request_for('10.0.0.5', headers={'X-Forwarded-For': '203.0.113.7'})
+    b = request_for('10.0.0.5', headers={'X-Forwarded-For': '198.51.100.9'})
+    assert client_net_hash(a) != client_net_hash(b)
+    assert (login_attempt_key(a, 'm@example.org')
+        != login_attempt_key(b, 'm@example.org'))
 
 
 def test_in_memory_rate_limiter_enforces_limit():

@@ -30,6 +30,7 @@ CROCKFORD_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
 OUTBOX_EVENT = 'screening.requested'
 MAX_URL_LENGTH = 2048
 MAX_EMAIL_LENGTH = 320
+MAX_CONTEXT_LENGTH = 4096
 
 _HOST_LABEL = r'[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?'
 _HOST_RE = re.compile(rf'{_HOST_LABEL}(\.{_HOST_LABEL})*')
@@ -253,6 +254,10 @@ def intake_submission(session: Session, *, url, context, contact_email, files,
     """Validate, stage, and persist a guest submission in one transaction."""
     submitted_url = validate_url(url)
     email = validate_contact_email(contact_email)
+    context = context or ''
+    if len(context) > MAX_CONTEXT_LENGTH:
+        raise SubmissionError(422,
+            f'context exceeds {MAX_CONTEXT_LENGTH} characters')
     uploads = [f for f in files if f.filename]
     if not submitted_url and not uploads:
         raise SubmissionError(422, 'Provide a url or at least one file')

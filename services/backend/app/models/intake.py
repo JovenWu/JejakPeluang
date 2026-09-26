@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, Uuid
+from sqlalchemy import (JSON, DateTime, ForeignKey, Index, Integer, String,
+    Text, Uuid, text)
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db import Base
 
@@ -23,7 +24,8 @@ class Submission(Base):
 class Upload(Base):
     __tablename__ = 'uploads'
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    submission_id: Mapped[UUID] = mapped_column(ForeignKey('submissions.id'))
+    submission_id: Mapped[UUID] = mapped_column(
+        ForeignKey('submissions.id'), index=True)
     storage_key: Mapped[str] = mapped_column(String(255), unique=True)
     detected_mime: Mapped[str] = mapped_column(String(64))
     size_bytes: Mapped[int] = mapped_column(Integer)
@@ -35,7 +37,8 @@ class Upload(Base):
 class ScreeningRun(Base):
     __tablename__ = 'screening_runs'
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    submission_id: Mapped[UUID] = mapped_column(ForeignKey('submissions.id'))
+    submission_id: Mapped[UUID] = mapped_column(
+        ForeignKey('submissions.id'), index=True)
     state: Mapped[str] = mapped_column(String(32), default='queued')
     provider_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     model_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -52,6 +55,10 @@ class ScreeningRun(Base):
 
 class JobOutbox(Base):
     __tablename__ = 'job_outbox'
+    __table_args__ = (
+        Index('ix_job_outbox_pending', 'created_at',
+            postgresql_where=text('delivered_at IS NULL')),
+    )
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     event_type: Mapped[str] = mapped_column(String(64))
     screening_run_id: Mapped[UUID] = mapped_column(ForeignKey('screening_runs.id'))
@@ -64,7 +71,8 @@ class JobOutbox(Base):
 class CommunityReport(Base):
     __tablename__ = 'community_reports'
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    opportunity_id: Mapped[UUID] = mapped_column(ForeignKey('opportunities.id'))
+    opportunity_id: Mapped[UUID] = mapped_column(
+        ForeignKey('opportunities.id'), index=True)
     category: Mapped[str] = mapped_column(String(32))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default='open')

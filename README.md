@@ -89,15 +89,19 @@ Runs always terminate in a moderator-visible outcome: `complete`,
 `provider_unavailable`, `manual_review_required` (malformed model output),
 `no_public_source`, or `no_content`. Provider calls retry transient failures
 (timeouts, connection errors, 429, 5xx) with capped exponential backoff +
-jitter and honour `Retry-After`; exhausted retries degrade the outcome rather
-than failing intake. Workers bound each run to 3 attempts; a hard failure or
+jitter and honour `Retry-After` up to 30 s — a longer delay becomes
+`provider_unavailable` instead of wedging the worker past the run deadline;
+exhausted retries degrade the outcome rather than failing intake. Workers bound each run to 3 attempts; a hard failure or
 stale run lands in `failed` for the moderator to see.
 
 The `sweeper` service runs `scripts/sweep_retention.py` hourly: deletes
 expired uploads from disk + rows, purges `submission_text`/`evidence[].text`
 and contact emails once `purge_after` passes, closes stale queued/processing
-submissions after `STALE_HOURS` (72), and clears orphaned staging files after
-`STAGING_MAX_AGE_HOURS` (24).
+submissions after `STALE_HOURS` (72) and any still-open submission once its
+30-day window ends, removes expired access-token rows, and clears orphaned
+staging files after `STAGING_MAX_AGE_HOURS` (24). Any terminal moderator
+decision — approve, reject, or expire — shortens submission retention to
+7 days from the decision.
 
 Provider + runtime variables (also see `infra/.env.example`):
 
@@ -106,11 +110,19 @@ Provider + runtime variables (also see `infra/.env.example`):
 - `TYPESAFE_API_KEY`, `TYPESAFE_MODEL` (default `jev-latest`)
 - `TAVILY_API_KEY`, `TAVILY_BASE_URL`
 - `REDIS_URL` — enables the Redis outbox broker + shared rate limiter.
-  `JOB_BROKER=redis` requires it; without either the worker polls the DB.
+  `JOB_BROKER=redis` requires it. Without Redis the worker polls the DB:
+  fresh queued runs wait up to `SWEEP_INTERVAL_SECONDS` (30 s) before
+  dispatch — fine for dev, set Redis for prompt processing.
 - `RATE_LIMITER=redis` — shared fixed-window limiter (INCR+EXPIRE);
   default `memory` is per-process. The Redis limiter fails open with a
   warning if the backend is unreachable.
-- `ACCESS_TOKEN_TTL_SECONDS` — moderator session TTL, default 28800 (8 h).
+- `TRUSTED_PROXY_CIDRS` — comma-separated CIDRs of trusted reverse proxies
+  (e.g. `172.18.0.0/16` for the Traefik network). Only requests whose socket
+  peer is inside these ranges may set `X-Forwarded-For`-derived client
+  identity for rate limiting; without it every proxied guest shares one
+  bucket. Leave empty when clients connect directly.
+- `ACCESS_TOKEN_TTL_SECONDS` — moderator session TTL, default 28800 (8 h);
+  expired token rows are removed by the retention sweep.
 - `APP_ENV=production` — startup fails unless `AUTH_SECRET`/`RATE_LIMIT_SALT`
   are non-default, `COOKIE_SECURE=true`, and `JOB_BROKER=redis` has
   `REDIS_URL`.
@@ -123,11 +135,13 @@ the api/worker/sweeper containers only.
 - Uploads are sniffed by content (magic bytes + pypdf parse); an AV scanner
   seam exists via `FileScanner` (`app.services.submissions.get_scanner`) —
   drop in a ClamAV adapter behind the same protocol for production.
-- Request body size is enforced per-upload (5 MB, 3 files); the front proxy
-  should also cap total request size (e.g. Traefik `buffering.maxRequestBodyBytes`
-  or nginx `client_max_body_size 16m`).
+- Request body size is enforced per-upload (10 MB per file, 20 MB total,
+  3 files); the front proxy should also cap total request size (e.g. Traefik
+  `buffering.maxRequestBodyBytes` or nginx `client_max_body_size 32m`).
 - The worker runs screening sequentially per process; scale by adding
-  worker replicas (idempotent by run id) — single-replica is the default.
+  worker replicas — concurrent processing of the same run is prevented by an
+  atomic state-claim UPDATE, and runs are idempotent by run id.
+  Single-replica is the default.
 
 ## Tests
 

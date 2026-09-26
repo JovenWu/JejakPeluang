@@ -26,6 +26,7 @@ _ACCEPT = ('text/html,application/xhtml+xml,application/pdf,'
     'text/plain;q=0.9,*/*;q=0.5')
 _ALLOWED_PORTS = (None, 80, 443)
 _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+_NAT64 = ipaddress.ip_network('64:ff9b::/96')
 
 Resolver = Callable[[str, int], list[str]]
 
@@ -33,7 +34,7 @@ Resolver = Callable[[str, int], list[str]]
 class FetchError(Exception):
     """Fetch rejection; .kind is one of 'invalid_url', 'forbidden_host',
     'dns_blocked', 'connect_failed', 'timeout', 'too_large', 'http_error',
-    'too_many_redirects', 'bad_redirect', 'unsupported_type'."""
+    'too_many_redirects'."""
 
     def __init__(self, kind: str, detail: str = '',
             *, status: int | None = None):
@@ -88,6 +89,8 @@ def _is_public(ip: str) -> bool:
         embedded = addr.ipv4_mapped or addr.sixtofour
         if addr.teredo is not None:
             embedded = addr.teredo[1]
+        if embedded is None and addr in _NAT64:
+            embedded = ipaddress.ip_address(addr.packed[-4:])
         if embedded is not None:
             addr = embedded
     return addr.is_global

@@ -207,6 +207,7 @@ def run_screening(session: Session, run: ScreeningRun, *,
     result = _base_result()
     outcome = 'complete'
     models: list[str] = []
+    providers_used: set[str] = set()
 
     def deadline_hit() -> bool:
         return clock() - started > RUN_DEADLINE_SECONDS
@@ -220,6 +221,7 @@ def run_screening(session: Session, run: ScreeningRun, *,
 
         extraction = None
         if llm is not None and submission_text:
+            providers_used.add('openrouter')
             try:
                 extraction = llm.extract_fields(submission_text[:LLM_INPUT_CAP])
                 result['extraction'] = extraction
@@ -234,10 +236,15 @@ def run_screening(session: Session, run: ScreeningRun, *,
                 outcome = 'manual_review_required'
         elif not submission_text:
             outcome = 'no_content'
+        else:
+            errors.append({'stage': 'extract', 'kind': 'not_configured',
+                'detail': 'no extraction provider configured'})
+            outcome = 'provider_unavailable'
 
         if extraction:
             domains = _known_issuer_domains(session, extraction, submission)
             if searcher is not None and not deadline_hit():
+                providers_used.add('tavily')
                 result['discovery'] = _discover(searcher, extraction,
                     domains, errors)
                 for candidate in result['discovery']['results']:
@@ -284,6 +291,7 @@ def run_screening(session: Session, run: ScreeningRun, *,
                     'submitter_context': submission.context or '',
                     'evidence': [page]}
                 try:
+                    providers_used.add('typesafe-jev')
                     answers, jev_model = judge.judge(state,
                         has_deadline=bool(extraction.get('deadline')))
                 except ProviderUnavailable as exc:
@@ -309,7 +317,7 @@ def run_screening(session: Session, run: ScreeningRun, *,
         finished = datetime.now(timezone.utc)
         run.state = 'complete'
         run.result_json = result
-        run.provider_version = 'openrouter+tavily+typesafe-jev'
+        run.provider_version = ('+'.join(sorted(providers_used)) or None)
         run.model_version = '+'.join(models)[:64] or None
         run.schema_version = SCHEMA_VERSION
         run.finished_at = finished

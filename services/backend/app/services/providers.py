@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 3
 DEFAULT_TIMEOUT_SECONDS = 15.0
+# A Retry-After beyond this cannot be honoured inside a screening run's
+# 300 s deadline — fail fast instead of wedging the worker on a sleep.
+MAX_RETRY_DELAY_SECONDS = 30.0
 _RETRY_STATUSES = {408, 409, 425, 429, 500, 502, 503, 504}
 
 
@@ -79,6 +82,9 @@ def post_json(url: str, *, headers: dict[str, str], payload: dict[str, Any],
                         f'{label} returned {response.status_code}',
                         status=response.status_code)
                     delay = _retry_after_seconds(response)
+                    if delay is not None and delay > MAX_RETRY_DELAY_SECONDS:
+                        raise ProviderUnavailable(
+                            f'{label} asked to retry in {delay:.0f}s')
                     if delay is None:
                         delay = 0.5 * (2 ** (attempt - 1)) + random.uniform(0, 0.25)
                     if attempt < max_attempts:

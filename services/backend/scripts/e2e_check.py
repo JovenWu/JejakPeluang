@@ -15,6 +15,7 @@ import sys
 import time
 from os import environ
 from pathlib import Path
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -36,6 +37,11 @@ POLL_TIMEOUT = float(environ.get('E2E_POLL_TIMEOUT', '240'))
 
 
 def ensure_moderator() -> None:
+    # This script writes a moderator account — refuse to run against
+    # anything but the disposable E2E database.
+    if urlsplit(environ.get('DATABASE_URL', '')).path != '/jejakpeluang_e2e':
+        raise RuntimeError(
+            'e2e_check requires the isolated jejakpeluang_e2e database')
     with Session(engine()) as session:
         user = session.scalar(select(User).where(
             func.lower(User.email) == MOD_EMAIL))

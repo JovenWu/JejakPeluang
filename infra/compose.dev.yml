@@ -9,6 +9,7 @@ x-backend-env: &backend-env
   REDIS_URL: redis://redis:6379/0
   JOB_BROKER: redis
   RATE_LIMITER: ${RATE_LIMITER:-memory}
+  TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
   APP_ENV: ${APP_ENV:-development}
   OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
   OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-6-luna}

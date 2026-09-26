@@ -58,15 +58,6 @@ def make_publisher() -> Publisher:
     return LoggingPublisher()
 
 
-def default_publisher() -> Publisher:
-    global _default
-    try:
-        return _default
-    except NameError:
-        _default = make_publisher()
-        return _default
-
-
 def pop_run_id(client, timeout_seconds: int = 5) -> UUID | None:
     """Blocking pop of one screening-run id from the worker queue.
 

@@ -1,4 +1,5 @@
 import hashlib
+import ipaddress
 import logging
 import time
 from http.cookies import SimpleCookie
@@ -114,8 +115,45 @@ def get_rate_limiter() -> RateLimiter:
     return make_rate_limiter()
 
 
+def _trusted_proxy_cidrs() -> list:
+    raw = environ.get('TRUSTED_PROXY_CIDRS', '')
+    nets = []
+    for part in raw.split(','):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            nets.append(ipaddress.ip_network(part))
+        except ValueError:
+            logger.warning('ignoring invalid TRUSTED_PROXY_CIDRS entry %r',
+                part)
+    return nets
+
+
 def _client_ip(request: Request) -> str:
-    return request.client.host if request.client else 'unknown'
+    """Socket peer, or the rightmost untrusted X-Forwarded-For entry when the
+    peer is a configured trusted proxy (TRUSTED_PROXY_CIDRS). Client-supplied
+    XFF entries to the left are never trusted; hops that are themselves
+    trusted proxies or unparseable are skipped."""
+    peer = request.client.host if request.client else 'unknown'
+    try:
+        peer_addr = ipaddress.ip_address(peer)
+    except ValueError:
+        return peer
+    nets = _trusted_proxy_cidrs()
+    if not nets or not any(peer_addr in net for net in nets):
+        return peer
+    forwarded = request.headers.get('x-forwarded-for', '')
+    for hop in reversed(forwarded.split(',')):
+        hop = hop.strip()
+        try:
+            hop_addr = ipaddress.ip_address(hop)
+        except ValueError:
+            continue
+        if any(hop_addr in net for net in nets):
+            continue
+        return str(hop_addr)
+    return peer
 
 
 def client_net_hash(request: Request) -> str:

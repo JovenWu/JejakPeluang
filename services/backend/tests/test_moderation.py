@@ -329,6 +329,39 @@ def test_terminal_decisions_set_purge_after(client, session, moderator,
     assert timedelta(days=6, hours=23) < delta <= timedelta(days=7)
 
 
+def test_approve_shortens_retention_and_upload_delete_after(client, session,
+        moderator):
+    submission = make_submission(session)
+    upload = make_upload(session, submission)
+    # An upload that would otherwise outlive the decision window.
+    upload.delete_after = (datetime.now(timezone.utc)
+        + timedelta(days=60)).replace(tzinfo=None)
+    session.commit()
+
+    response = decide(client, submission.id, approve_fields())
+    assert response.status_code == 200
+
+    session.expire_all()
+    row = session.get(Submission, submission.id)
+    assert row.state == 'published'
+    delta = row.purge_after - datetime.now(timezone.utc).replace(tzinfo=None)
+    assert timedelta(days=6, hours=23) < delta <= timedelta(days=7)
+    stored = session.get(Upload, upload.id)
+    assert stored.delete_after == row.purge_after
+
+
+def test_needs_more_evidence_keeps_full_retention(client, session, moderator):
+    submission = make_submission(session)
+    original_purge = submission.purge_after
+    response = decide(client, submission.id,
+        {'decision': 'needs_more_evidence'})
+    assert response.status_code == 200
+    session.expire_all()
+    row = session.get(Submission, submission.id)
+    assert row.state == 'review_pending'
+    assert row.purge_after == original_purge
+
+
 def test_decision_on_terminal_submission_conflicts(client, session, moderator):
     submission = make_submission(session, state='rejected')
     response = decide(client, submission.id, {'decision': 'approved'})

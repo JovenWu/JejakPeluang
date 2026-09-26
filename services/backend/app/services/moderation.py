@@ -298,8 +298,9 @@ def decide(session: Session, *, submission: Submission, moderator: User,
     ``approved`` builds the full trust chain (issuer, verified domain,
     source evidence, decision) and delegates publication to
     ``publish_approved`` — its invariants are never bypassed. Non-approved
-    decisions only move the submission state; ``rejected``/``expire`` are
-    terminal and shorten retention to seven days.
+    decisions only move the submission state. Every terminal decision —
+    ``approved`` (published), ``rejected``, ``expire`` — shortens guest PII
+    retention to seven days per spec §6.
     """
     if submission.state in TERMINAL_STATES:
         raise ModerationError(409,
@@ -316,6 +317,10 @@ def decide(session: Session, *, submission: Submission, moderator: User,
             decision, opportunity = _approve(session, submission=submission,
                 moderator=moderator, reason=reason, fields=fields, now=now)
             submission.state = 'published'
+            submission.purge_after = now + timedelta(
+                days=DECISION_PURGE_DAYS)
+            _shorten_upload_retention(session, submission,
+                submission.purge_after)
         else:
             decision = ModerationDecision(source_evidence_id=None,
                 submission_id=submission.id, actor_id=moderator.id,

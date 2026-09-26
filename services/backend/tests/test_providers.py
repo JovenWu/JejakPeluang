@@ -4,8 +4,8 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.services.providers import (ProviderError, ProviderUnavailable,
-    post_json)
+from app.services.providers import (MAX_RETRY_DELAY_SECONDS, ProviderError,
+    ProviderUnavailable, post_json)
 from app.services.screening_jev import TypeSafeJudge, answers_to_json
 from app.services.screening_openrouter import OpenRouterClient
 from app.services.screening_tavily import TavilySearcher
@@ -54,6 +54,59 @@ def test_post_json_4xx_fails_immediately():
             client=responder(handler), sleeper=lambda s: None)
     assert exc.value.status == 401
     assert len(calls) == 1
+
+
+def test_post_json_honours_retry_after_header():
+    sleeps, calls = [], []
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return httpx.Response(429, headers={'retry-after': '2'})
+        return httpx.Response(200, json={'ok': True})
+    body = post_json('https://p.example/x', headers={}, payload={},
+        client=responder(handler), sleeper=sleeps.append)
+    assert body == {'ok': True}
+    assert sleeps == [2.0]
+
+
+def test_post_json_overlong_retry_after_is_terminal():
+    # A Retry-After beyond the run deadline must not wedge the worker —
+    # it becomes provider_unavailable after a single attempt, no sleep.
+    sleeps, calls = [], []
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(503, headers={'retry-after': '3600'})
+    with pytest.raises(ProviderUnavailable) as exc:
+        post_json('https://p.example/x', headers={}, payload={},
+            client=responder(handler), sleeper=sleeps.append)
+    assert exc.value.kind == 'provider_unavailable'
+    assert len(calls) == 1
+    assert sleeps == []
+
+
+def test_post_json_backoff_delays_stay_bounded():
+    sleeps = []
+    def handler(request):
+        return httpx.Response(500)
+    with pytest.raises(ProviderUnavailable):
+        post_json('https://p.example/x', headers={}, payload={},
+            client=responder(handler), sleeper=sleeps.append,
+            max_attempts=3)
+    assert len(sleeps) == 2
+    assert all(0 < s <= MAX_RETRY_DELAY_SECONDS for s in sleeps)
+
+
+def test_post_json_unparseable_retry_after_uses_backoff():
+    sleeps = []
+    def handler(request):
+        return httpx.Response(503, headers={
+            'retry-after': 'Wed, 21 Oct 2099 07:28:00 GMT'})
+    with pytest.raises(ProviderUnavailable):
+        post_json('https://p.example/x', headers={}, payload={},
+            client=responder(handler), sleeper=sleeps.append,
+            max_attempts=2)
+    assert len(sleeps) == 1
+    assert sleeps[0] <= MAX_RETRY_DELAY_SECONDS
 
 
 def test_post_json_non_json_body_is_bad_response():
