@@ -31,7 +31,11 @@ class SourceEvidence(Base):
 class ModerationDecision(Base):
     __tablename__ = 'moderation_decisions'
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    source_evidence_id: Mapped[UUID] = mapped_column(ForeignKey('source_evidence.id'))
+    # nullable: submission-scoped decisions (reject/expire/needs_more_evidence
+    # on file-only intakes) may carry no source evidence; publish_approved
+    # still refuses an approved decision whose evidence id is missing.
+    source_evidence_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey('source_evidence.id'), nullable=True)
     submission_id: Mapped[UUID | None] = mapped_column(ForeignKey('submissions.id'),
         nullable=True)
     actor_id: Mapped[UUID] = mapped_column(Uuid)
@@ -65,9 +69,14 @@ class Opportunity(Base):
 class AuditEvent(Base):
     __tablename__ = 'audit_events'
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    actor_id: Mapped[UUID] = mapped_column(Uuid)
+    # nullable actor: anonymous actors (e.g. public community reports) have
+    # no user id; moderator actions always set it.
+    actor_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
     action: Mapped[str] = mapped_column(String(64))
-    opportunity_id: Mapped[UUID] = mapped_column(ForeignKey('opportunities.id'))
+    # nullable: audit rows for non-opportunity entities (submissions) point at
+    # entity_type/entity_id instead.
+    opportunity_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey('opportunities.id'), nullable=True)
     entity_type: Mapped[str] = mapped_column(String(32), default='opportunity',
         server_default='opportunity')
     entity_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)

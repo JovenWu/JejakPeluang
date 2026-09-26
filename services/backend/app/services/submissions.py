@@ -259,8 +259,12 @@ def intake_submission(session: Session, *, url, context, contact_email, files,
         submission.state = 'queued'
         session.commit()
     except Exception:
-        session.rollback()
-        _cleanup(staged)
+        try:
+            session.rollback()
+        finally:
+            # File cleanup must run even if rollback itself fails, or
+            # finalized uploads would be orphaned on disk.
+            _cleanup(staged)
         raise
     return submission, receipt_token
 

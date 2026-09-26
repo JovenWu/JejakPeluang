@@ -195,6 +195,27 @@ def test_submit_cleans_up_when_scanner_rejects(client, session, upload_dir):
     assert leftovers == []
 
 
+def test_submit_cleans_files_when_rollback_fails(client, session, upload_dir,
+        monkeypatch):
+    """If rollback itself raises, staged/finalized files must still be removed."""
+    def failing_commit():
+        raise RuntimeError('commit exploded')
+
+    def failing_rollback():
+        raise RuntimeError('rollback exploded')
+
+    monkeypatch.setattr(session, 'commit', failing_commit)
+    monkeypatch.setattr(session, 'rollback', failing_rollback)
+    files = [type('F', (), {'filename': 'laporan.pdf',
+        'file': io.BytesIO(pdf_bytes())})()]
+    with pytest.raises(RuntimeError):
+        submissions_service.intake_submission(session, url=None, context='',
+            contact_email=None, files=files, client_net='n' * 64,
+            scanner=submissions_service.NoOpScanner())
+    leftovers = [p for p in upload_dir.rglob('*') if p.is_file()]
+    assert leftovers == []
+
+
 def make_submission(session, ref='JP-TESTREF0'):
     token = 'receipt-' + uuid4().hex
     submission = Submission(ref=ref,

@@ -29,13 +29,20 @@ class LoggingPublisher:
             event_type, screening_run_id)
 
 
-def dispatch_pending(session: Session, publisher: Publisher) -> int:
+def dispatch_pending(session: Session,
+        publisher: Publisher | None = None) -> int:
     """Publish undelivered job_outbox rows; returns the delivered count.
 
     Each row is attempted once per call: ``attempts`` always increments,
     successes get ``delivered_at``, failures get ``last_error`` and are
     retried on the next call. Callers own the transaction (flush only here).
+
+    ``publisher`` defaults to :class:`LoggingPublisher`, an idempotent stub
+    that counts as delivered; the Celery screening worker is expected to call
+    this with a real broker publisher once the async pipeline lands. No HTTP
+    endpoint exposes dispatch — it is invoked from worker/test code only.
     """
+    publisher = publisher or LoggingPublisher()
     rows = session.scalars(select(JobOutbox).where(
         JobOutbox.delivered_at.is_(None)).order_by(
         JobOutbox.created_at)).all()
