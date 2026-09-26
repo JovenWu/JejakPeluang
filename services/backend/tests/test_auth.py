@@ -72,6 +72,13 @@ def test_logout_revokes_token(client, make_user):
     assert client.get('/api/v1/users/me').status_code == 401
 
 
+def test_auth_routes_declare_204():
+    from app.main import app
+    paths = app.openapi()['paths']
+    assert '204' in paths['/api/v1/auth/login']['post']['responses']
+    assert '204' in paths['/api/v1/auth/logout']['post']['responses']
+
+
 def test_registration_endpoint_absent(client):
     response = client.post('/api/v1/auth/register',
         json={'email': 'new@example.org', 'password': 'x' * 12})

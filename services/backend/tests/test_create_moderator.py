@@ -56,6 +56,19 @@ def test_create_moderator_explicit_password(script, monkeypatch, capsys):
             's3cret', user.hashed_password)[0]
 
 
+def test_create_moderator_prints_normalized_email(script, monkeypatch, capsys):
+    module, test_engine = script
+    code, out = run(module,
+        ['create_moderator.py', 'MixedCase@Example.ORG', '--password', 's3cret'],
+        monkeypatch, capsys)
+    assert code == 0
+    assert 'created moderator mixedcase@example.org' in out.out
+    with Session(test_engine) as session:
+        user = session.execute(select(User).where(
+            User.email == 'mixedcase@example.org')).scalar_one()
+        assert user.role == 'moderator'
+
+
 def test_create_moderator_refuses_duplicate(script, monkeypatch, capsys):
     module, _ = script
     argv = ['create_moderator.py', 'dup@example.org', '--password', 's3cret']

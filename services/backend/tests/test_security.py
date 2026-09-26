@@ -42,6 +42,18 @@ def test_in_memory_rate_limiter_keys_are_independent():
     assert not limiter.check('a', limit=1, window_seconds=60)
 
 
+def test_in_memory_rate_limiter_evicts_stale_keys():
+    now = [0.0]
+    limiter = InMemoryRateLimiter(clock=lambda: now[0], max_buckets=2)
+    limiter.check('old', limit=1, window_seconds=60)
+    now[0] = 120.0
+    limiter.check('a', limit=1, window_seconds=60)
+    limiter.check('b', limit=1, window_seconds=60)
+    limiter.check('c', limit=1, window_seconds=60)
+    assert 'old' not in limiter._buckets
+    assert set(limiter._buckets) == {'a', 'b', 'c'}
+
+
 @pytest.fixture
 def authed_client(client, make_user, auth_cookie):
     user = make_user('csrf@example.org')
@@ -56,6 +68,12 @@ def test_csrf_blocks_cookie_post_without_origin(authed_client):
 def test_csrf_blocks_cookie_post_with_foreign_origin(authed_client):
     response = authed_client.post('/api/v1/auth/logout',
         headers={'Origin': 'https://evil.example'})
+    assert response.status_code == 403
+
+
+def test_csrf_blocks_cookie_post_with_malformed_origin(authed_client):
+    response = authed_client.post('/api/v1/auth/logout',
+        headers={'Origin': 'http://['})
     assert response.status_code == 403
 
 

@@ -21,19 +21,20 @@ def main() -> int:
         help='Set an explicit password instead of a generated one.')
     args = parser.parse_args()
 
+    email = args.email.strip().lower()
     password = args.password or secrets.token_urlsafe(18)
     with Session(engine()) as session:
         existing = session.execute(select(User).where(
-            func.lower(User.email) == func.lower(args.email))).scalar_one_or_none()
+            func.lower(User.email) == email)).scalar_one_or_none()
         if existing is not None:
-            print(f'moderator {args.email} already exists', file=sys.stderr)
+            print(f'moderator {email} already exists', file=sys.stderr)
             return 1
-        session.add(User(email=args.email.strip().lower(),
+        session.add(User(email=email,
             hashed_password=password_helper.hash(password),
             is_active=True, is_verified=True, role='moderator'))
         session.commit()
 
-    print(f'created moderator {args.email}')
+    print(f'created moderator {email}')
     if args.password is None:
         print(f'password: {password}')
     return 0

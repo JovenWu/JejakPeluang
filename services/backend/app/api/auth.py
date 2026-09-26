@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users.authentication.strategy.db import DatabaseStrategy
 from fastapi_users.router.common import ErrorCode
@@ -13,7 +13,8 @@ auth_router = APIRouter(tags=['auth'])
 users_router = APIRouter(tags=['users'])
 
 
-@auth_router.post('/login', name='auth:cookie.login')
+@auth_router.post('/login', status_code=204, response_class=Response,
+    name='auth:cookie.login')
 async def login(request: Request,
     credentials: OAuth2PasswordRequestForm = Depends(),
     user_manager: UserManager = Depends(get_user_manager),
@@ -31,7 +32,8 @@ async def login(request: Request,
     return response
 
 
-@auth_router.post('/logout', name='auth:cookie.logout')
+@auth_router.post('/logout', status_code=204, response_class=Response,
+    name='auth:cookie.logout')
 async def logout(
     user_token: tuple[User, str] = Depends(current_user_token),
     strategy: DatabaseStrategy = Depends(get_database_strategy)):

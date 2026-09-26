@@ -26,22 +26,35 @@ class RateLimiter(Protocol):
 
 
 class InMemoryRateLimiter:
-    """Process-local fixed-window limiter; not shared across workers."""
+    """Process-local fixed-window limiter; not shared across workers.
 
-    def __init__(self, clock=time.time):
+    Buckets map key -> (window_index, count, expires_at_epoch). When the map
+    grows past max_buckets, expired entries are evicted on the next check so
+    attacker-controlled keys cannot grow memory without bound.
+    """
+
+    def __init__(self, clock=time.time, max_buckets: int = 10_000):
         self._clock = clock
-        self._buckets: dict[str, tuple[int, int]] = {}
+        self._max_buckets = max_buckets
+        self._buckets: dict[str, tuple[int, int, float]] = {}
 
     def check(self, key: str, limit: int, window_seconds: int) -> bool:
-        window = int(self._clock() // window_seconds)
+        now = self._clock()
+        window = int(now // window_seconds)
+        if len(self._buckets) > self._max_buckets:
+            self._evict_expired(now)
         bucket = self._buckets.get(key)
         if bucket is None or bucket[0] != window:
-            self._buckets[key] = (window, 1)
+            self._buckets[key] = (window, 1, (window + 1) * window_seconds)
             return True
         if bucket[1] >= limit:
             return False
-        self._buckets[key] = (window, bucket[1] + 1)
+        self._buckets[key] = (window, bucket[1] + 1, bucket[2])
         return True
+
+    def _evict_expired(self, now: float) -> None:
+        self._buckets = {key: bucket for key, bucket in self._buckets.items()
+            if bucket[2] > now}
 
     def reset(self) -> None:
         self._buckets.clear()
@@ -102,7 +115,10 @@ class CsrfOriginMiddleware:
         source = headers.get('origin') or headers.get('referer')
         if not source:
             return False
-        source_host = urlsplit(source).hostname
+        try:
+            source_host = urlsplit(source).hostname
+        except ValueError:
+            return False
         return source_host is not None and source_host.lower() == host
 
     @staticmethod
