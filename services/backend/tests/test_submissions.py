@@ -126,6 +126,26 @@ def test_submit_rejects_bad_url(client, upload_dir, url):
     assert post(client, data={'url': url}).status_code == 422
 
 
+@pytest.mark.parametrize('url', [
+    'http://127.0.0.1/x', 'http://127.0.0.1:8080/x', 'https://169.254.169.254/',
+    'http://[::1]/x', 'http://[::ffff:127.0.0.1]/x', 'http://0x7f.0.0.1/x',
+    'http://2130706433/x', 'http://127.1/x', 'http://user:pass@example.org/x',
+    'http://user@example.org/x', 'https://example.org:8443/x',
+    'http://example.org:8080/x'])
+def test_submit_rejects_unsafe_url_hosts(client, upload_dir, url):
+    assert post(client, data={'url': url}).status_code == 422
+
+
+@pytest.mark.parametrize('url', [
+    'http://example.org:80/x', 'https://example.org:443/x',
+    'https://sub.domain.example.org/path?q=1#frag'])
+def test_submit_accepts_safe_url_forms(client, session, upload_dir, url):
+    assert post(client, data={'url': url}).status_code == 202
+    submission = session.scalar(select(Submission).order_by(
+        Submission.created_at.desc()))
+    assert submission.submitted_url == url
+
+
 def test_submit_rejects_bad_contact_email(client, upload_dir):
     response = post(client, data={'url': 'https://example.org/x',
         'contact_email': 'bukan-email'})
@@ -230,7 +250,11 @@ def make_submission(session, ref='JP-TESTREF0'):
 
 def test_status_requires_receipt_token(client, session):
     submission, _ = make_submission(session)
+    # Header is contract-required: absent -> 422, present-but-wrong -> 401.
     response = client.get(f'/api/v1/submissions/{submission.ref}')
+    assert response.status_code == 422
+    response = client.get(f'/api/v1/submissions/{submission.ref}',
+        headers={'X-Receipt-Token': ''})
     assert response.status_code == 401
 
 
@@ -283,6 +307,7 @@ def test_status_reports_needs_more_evidence(client, session, official_source):
     ('queued', 'Dalam antrean'),
     ('processing', 'Sedang diproses'),
     ('review_pending', 'Menunggu peninjauan moderator'),
+    ('published', 'Dipublikasikan'),
     ('closed_unreviewed', 'Ditutup tanpa peninjauan'),
 ])
 def test_status_labels(client, session, state, label):

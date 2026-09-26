@@ -185,6 +185,15 @@
             "minLength": 1,
             "title": "Title",
             "type": "string"
+          },
+          "trust_basis": {
+            "default": "public_source",
+            "enum": [
+              "public_source",
+              "issuer_confirmed_private"
+            ],
+            "title": "Trust Basis",
+            "type": "string"
           }
         },
         "required": [
@@ -337,9 +346,15 @@
       "OpportunityDetail": {
         "properties": {
           "ai_source_match": {
-            "default": false,
-            "title": "Ai Source Match",
-            "type": "boolean"
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Source Match"
           },
           "category": {
             "enum": [
@@ -477,9 +492,15 @@
       "OpportunitySummary": {
         "properties": {
           "ai_source_match": {
-            "default": false,
-            "title": "Ai Source Match",
-            "type": "boolean"
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Source Match"
           },
           "category": {
             "enum": [
@@ -744,6 +765,29 @@
             "title": "Created At",
             "type": "string"
           },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -771,6 +815,18 @@
             ],
             "title": "Provider Version"
           },
+          "result_json": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Json"
+          },
           "schema_version": {
             "anyOf": [
               {
@@ -793,6 +849,9 @@
           "provider_version",
           "model_version",
           "schema_version",
+          "result_json",
+          "error",
+          "finished_at",
           "created_at"
         ],
         "title": "ScreeningRunMeta",
@@ -1697,17 +1756,10 @@
           {
             "in": "header",
             "name": "x-receipt-token",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Receipt-Token"
+              "title": "X-Receipt-Token",
+              "type": "string"
             }
           }
         ],

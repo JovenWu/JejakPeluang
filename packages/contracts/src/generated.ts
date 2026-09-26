@@ -304,6 +304,12 @@ export interface components {
             slug?: string | null;
             /** Title */
             title: string;
+            /**
+             * Trust Basis
+             * @default public_source
+             * @enum {string}
+             */
+            trust_basis: "public_source" | "issuer_confirmed_private";
         };
         /** DecisionRequest */
         DecisionRequest: {
@@ -364,11 +370,8 @@ export interface components {
         };
         /** OpportunityDetail */
         OpportunityDetail: {
-            /**
-             * Ai Source Match
-             * @default false
-             */
-            ai_source_match: boolean;
+            /** Ai Source Match */
+            ai_source_match?: boolean | null;
             /**
              * Category
              * @enum {string}
@@ -420,11 +423,8 @@ export interface components {
         };
         /** OpportunitySummary */
         OpportunitySummary: {
-            /**
-             * Ai Source Match
-             * @default false
-             */
-            ai_source_match: boolean;
+            /** Ai Source Match */
+            ai_source_match?: boolean | null;
             /**
              * Category
              * @enum {string}
@@ -537,6 +537,10 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Error */
+            error: string | null;
+            /** Finished At */
+            finished_at: string | null;
             /**
              * Id
              * Format: uuid
@@ -546,6 +550,10 @@ export interface components {
             model_version: string | null;
             /** Provider Version */
             provider_version: string | null;
+            /** Result Json */
+            result_json: {
+                [key: string]: unknown;
+            } | null;
             /** Schema Version */
             schema_version: string | null;
             /** State */
@@ -1033,8 +1041,8 @@ export interface operations {
     get_submission_status_api_v1_submissions__ref__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-receipt-token"?: string | null;
+            header: {
+                "x-receipt-token": string;
             };
             path: {
                 ref: string;

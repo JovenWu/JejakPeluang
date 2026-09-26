@@ -1,6 +1,6 @@
 from datetime import datetime
 from uuid import UUID, uuid4
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Uuid
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db import Base
 
@@ -40,6 +40,10 @@ class ScreeningRun(Base):
     provider_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     model_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     schema_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    result_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+        nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 

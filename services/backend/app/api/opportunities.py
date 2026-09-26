@@ -14,7 +14,8 @@ def to_summary(item) -> OpportunitySummary:
     return OpportunitySummary(slug=item.slug, title=item.title, category=item.category,
         issuer_name=item.issuer.name, deadline=item.deadline, checked_at=item.checked_at,
         verified_at=item.verified_at, trust_basis=item.trust_basis,
-        status=item.status, source_url=item.source_url, ai_source_match=False)
+        status=item.status, source_url=item.source_url,
+        ai_source_match=item.ai_source_match)
 
 
 @router.get('', response_model=OpportunityListResponse)

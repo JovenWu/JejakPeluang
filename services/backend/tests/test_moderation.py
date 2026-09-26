@@ -355,7 +355,7 @@ def test_approve_publishes_opportunity_end_to_end(client, session, moderator):
     assert response.status_code == 200
     body = response.json()
     assert body['status'] == 'approved'
-    assert body['submission_state'] == 'review_pending'
+    assert body['submission_state'] == 'published'
     slug = body['opportunity_slug']
     assert slug == 'beasiswa-uji'
 
@@ -509,6 +509,119 @@ def test_approve_blank_issuer_name_422(client, session, moderator):
     assert session.scalar(select(func.count()).select_from(Issuer)) == 0
     assert session.scalar(select(func.count()).select_from(
         ModerationDecision)) == 0
+
+
+def test_approve_issuer_name_matches_case_insensitively(client, session,
+        moderator, verified_issuer):
+    # 'EXAMPLE UNIVERSITY' must resolve to the existing 'Example University'
+    # issuer rather than minting a near-duplicate.
+    submission = make_submission(session)
+    response = decide(client, submission.id, approve_fields(
+        issuer_name='  eXaMpLe UnIvErSiTy  '))
+    assert response.status_code == 200
+    assert session.scalar(select(func.count()).select_from(Issuer)) == 1
+
+
+def test_published_submission_is_terminal(client, session, moderator):
+    submission = make_submission(session)
+    assert decide(client, submission.id, approve_fields()).status_code == 200
+    for action in ('rejected', 'expire', 'needs_more_evidence', 'approved'):
+        response = decide(client, submission.id, {'decision': action})
+        assert response.status_code == 409
+
+
+def test_terminal_decision_couples_upload_retention(client, session,
+        moderator, upload_dir):
+    submission = make_submission(session)
+    # Upload outliving the submission purge gets pulled back to it.
+    upload = make_upload(session, submission)
+    upload.delete_after = NOW + timedelta(days=90)
+    session.flush()
+    response = decide(client, submission.id, {'decision': 'rejected'})
+    assert response.status_code == 200
+    session.expire_all()
+    row = session.get(Submission, submission.id)
+    stored = session.get(Upload, upload.id)
+    assert stored.delete_after == row.purge_after
+    # SQLite stores DateTime(timezone=True) without an offset — compare naive.
+    delta = row.purge_after - datetime.now(timezone.utc).replace(tzinfo=None)
+    assert timedelta(days=6, hours=23) < delta <= timedelta(days=7)
+
+
+def test_terminal_decision_keeps_earlier_upload_retention(client, session,
+        moderator, upload_dir):
+    # An upload already expiring before the shortened purge date is untouched.
+    submission = make_submission(session)
+    upload = make_upload(session, submission)
+    original = upload.delete_after
+    response = decide(client, submission.id, {'decision': 'rejected'})
+    assert response.status_code == 200
+    session.expire_all()
+    stored = session.get(Upload, upload.id)
+    assert stored.delete_after == original
+
+
+def test_approved_index_blocks_second_approve_row(session):
+    # Database backstop for the double-approve race: two approved decisions
+    # for one submission violate the partial unique index.
+    from sqlalchemy.exc import IntegrityError
+    submission = make_submission(session)
+    for _ in range(2):
+        session.add(ModerationDecision(submission_id=submission.id,
+            actor_id=uuid4(), status='approved', decided_at=NOW))
+    with pytest.raises(IntegrityError):
+        session.flush()
+
+
+def test_private_tier_approve_publishes_without_source(client, session,
+        moderator):
+    # File-only submissions have no public URL; a moderator who confirmed the
+    # issuer privately can still publish, and nothing leaks a source.
+    submission = make_submission(session, url=None)
+    payload = approve_fields(issuer_name='Yayasan Privat',
+        trust_basis='issuer_confirmed_private')
+    response = decide(client, submission.id, payload)
+    assert response.status_code == 200
+    assert response.json()['submission_state'] == 'published'
+
+    slug = response.json()['opportunity_slug']
+    item = session.scalar(select(Opportunity).where(Opportunity.slug == slug))
+    assert item.trust_basis == 'issuer_confirmed_private'
+    assert item.source_url is None
+    assert item.issuer_domain_id is None
+    assert item.source_evidence_id is None
+    assert item.issuer.name == 'Yayasan Privat'
+
+    decision = session.get(ModerationDecision, item.moderation_decision_id)
+    assert decision.source_evidence_id is None
+    assert decision.status == 'approved'
+
+    public = client.get(f'/api/v1/opportunities/{slug}')
+    assert public.status_code == 200
+    body = public.json()
+    assert body['source_url'] is None
+    assert body['trust_basis'] == 'issuer_confirmed_private'
+    assert session.scalar(select(func.count()).select_from(
+        SourceEvidence)) == 0
+    assert session.scalar(select(func.count()).select_from(
+        IssuerDomain)) == 0
+
+
+def test_private_tier_requires_issuer_name(client, session, moderator):
+    submission = make_submission(session, url=None)
+    payload = approve_fields(trust_basis='issuer_confirmed_private')
+    response = decide(client, submission.id, payload)
+    assert response.status_code == 422
+    assert session.scalar(select(func.count()).select_from(
+        Opportunity)) == 0
+
+
+def test_public_tier_still_requires_url(client, session, moderator):
+    # Default trust_basis stays public_source: no URL, no approval.
+    submission = make_submission(session, url=None)
+    response = decide(client, submission.id, approve_fields(
+        issuer_name='Yayasan Privat'))
+    assert response.status_code == 422
 
 
 def test_detail_shows_decision_history_and_reports(client, session, moderator,

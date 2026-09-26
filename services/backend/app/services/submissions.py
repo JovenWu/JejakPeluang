@@ -1,6 +1,8 @@
 import hashlib
+import ipaddress
 import re
 import secrets
+import socket
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from os import environ
@@ -38,6 +40,7 @@ STATUS_LABELS = {
     'queued': 'Dalam antrean',
     'processing': 'Sedang diproses',
     'review_pending': 'Menunggu peninjauan moderator',
+    'published': 'Dipublikasikan',
     'closed_unreviewed': 'Ditutup tanpa peninjauan',
 }
 DEFAULT_STATUS_LABEL = 'Ditutup'
@@ -88,6 +91,22 @@ class StagedUpload:
     finalized: bool = False
 
 
+def _is_ip_literal(host: str) -> bool:
+    """True when host is an IP literal, including hex/octal/integer IPv4
+    encodings that resolvers treat as addresses (e.g. ``0x7f.0.0.1``,
+    ``2130706433``)."""
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        pass
+    try:
+        socket.inet_aton(host)
+        return True
+    except OSError:
+        return False
+
+
 def validate_url(raw: str | None) -> str | None:
     if raw is None or not raw.strip():
         return None
@@ -100,8 +119,20 @@ def validate_url(raw: str | None) -> str | None:
         raise SubmissionError(422, 'url is malformed')
     if parts.scheme not in ('http', 'https'):
         raise SubmissionError(422, 'url must use http or https')
+    if parts.username is not None or parts.password is not None:
+        raise SubmissionError(422, 'url must not embed credentials')
+    try:
+        port = parts.port
+    except ValueError:
+        raise SubmissionError(422, 'url port is invalid')
+    if port not in (None, 80, 443):
+        raise SubmissionError(422, 'url port must be 80 or 443')
     host = parts.hostname
-    if not host or not _HOST_RE.fullmatch(host):
+    if not host:
+        raise SubmissionError(422, 'url host is not a valid domain')
+    if _is_ip_literal(host):
+        raise SubmissionError(422, 'url host must be a domain, not an IP')
+    if not _HOST_RE.fullmatch(host):
         raise SubmissionError(422, 'url host is not a valid domain')
     return candidate
 

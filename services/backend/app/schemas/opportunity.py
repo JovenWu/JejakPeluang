@@ -17,7 +17,8 @@ class OpportunitySummary(BaseModel):
     trust_basis: TrustBasis
     status: Literal['published', 'expired', 'needs_review']
     source_url: HttpUrl | None
-    ai_source_match: bool = False
+    # null when no screening signal exists (unscreened or Jev unavailable)
+    ai_source_match: bool | None = None
 
 
 class OpportunityDetail(OpportunitySummary):
