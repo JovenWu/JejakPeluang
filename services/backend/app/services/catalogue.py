@@ -2,6 +2,7 @@ from datetime import date, datetime
 from urllib.parse import urlsplit
 from pydantic import BaseModel
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 from app.models.catalogue import AuditEvent, IssuerDomain, ModerationDecision, Opportunity, SourceEvidence
 from app.schemas.opportunity import Category
 
@@ -53,7 +54,8 @@ def reviewed_query():
     return (select(Opportunity)
         .join(ModerationDecision, Opportunity.moderation_decision_id == ModerationDecision.id)
         .join(IssuerDomain, Opportunity.issuer_domain_id == IssuerDomain.id)
-        .where(ModerationDecision.status == 'approved', IssuerDomain.verified_at.is_not(None)))
+        .options(selectinload(Opportunity.issuer))
+        .where(ModerationDecision.status == 'approved'))
 
 
 def list_public(session, *, category, q, limit, offset):

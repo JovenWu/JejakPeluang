@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.db import get_session
-from app.models.catalogue import Issuer
 from app.schemas.opportunity import Category, OpportunityDetail, OpportunityListResponse, OpportunitySummary
 from app.services.catalogue import get_public, list_public
 
@@ -9,9 +8,8 @@ router = APIRouter(prefix='/opportunities', tags=['opportunities'])
 
 
 def to_summary(session: Session, item) -> OpportunitySummary:
-    issuer = session.get(Issuer, item.issuer_id)
     return OpportunitySummary(slug=item.slug, title=item.title, category=item.category,
-        issuer_name=issuer.name, deadline=item.deadline, checked_at=item.checked_at,
+        issuer_name=item.issuer.name, deadline=item.deadline, checked_at=item.checked_at,
         verified_at=item.verified_at, trust_basis=item.trust_basis,
         status=item.status, source_url=item.source_url, ai_source_match=False)
 

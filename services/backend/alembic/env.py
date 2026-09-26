@@ -3,7 +3,7 @@ from os import environ
 from sqlalchemy import create_engine
 from alembic import context
 from app.db import Base
-from app.models import catalogue  # noqa: F401
+from app.models import auth, catalogue, intake  # noqa: F401
 
 config = context.config
 
