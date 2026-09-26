@@ -33,3 +33,11 @@ def test_list_excludes_unreviewed_entries(client, make_entry, session):
     response = client.get('/api/v1/opportunities')
     assert response.status_code == 200
     assert response.json() == {'items': [], 'total': 0}
+
+
+def test_detail_is_404_after_decision_revoked(client, make_entry, session):
+    item = make_entry('revoked-scholarship')
+    decision = session.get(ModerationDecision, item.moderation_decision_id)
+    decision.status = 'rejected'
+    session.flush()
+    assert client.get(f'/api/v1/opportunities/{item.slug}').status_code == 404

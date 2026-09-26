@@ -19,6 +19,12 @@ services:
         UV_IMAGE: ${UV_IMAGE:?set_reviewed_UV_IMAGE_digest}
     environment:
       DATABASE_URL: postgresql+psycopg://jejakpeluang_test:${TEST_DB_PASSWORD:?set_TEST_DB_PASSWORD}@postgres:5432/jejakpeluang_e2e
+      UPLOAD_DIR: /data/uploads
+      AUTH_SECRET: ${AUTH_SECRET:-jp-dev-auth-secret-change-me}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      RATE_LIMIT_SALT: ${RATE_LIMIT_SALT:-jp-dev-rate-limit-salt}
+    volumes:
+      - uploads:/data/uploads
     ports: ["127.0.0.1:${API_PORT:-8000}:8000"]
     healthcheck:
       test: ["CMD", "uv", "run", "--no-sync", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2)"]
@@ -44,3 +50,6 @@ services:
     depends_on:
       api:
         condition: service_healthy
+
+volumes:
+  uploads:
