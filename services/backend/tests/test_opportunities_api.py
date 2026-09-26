@@ -1,4 +1,5 @@
 from datetime import date
+from app.models.catalogue import ModerationDecision
 
 
 def test_list_excludes_drafts_and_expired(client, make_entry):
@@ -22,3 +23,13 @@ def test_expired_detail_remains_explainable(client, make_entry):
     assert response.status_code == 200
     assert response.json()['status'] == 'expired'
     assert response.json()['source_url'] == 'https://example.org/notice'
+
+
+def test_list_excludes_unreviewed_entries(client, make_entry, session):
+    item = make_entry('unreviewed-scholarship')
+    decision = session.get(ModerationDecision, item.moderation_decision_id)
+    decision.status = 'rejected'
+    session.flush()
+    response = client.get('/api/v1/opportunities')
+    assert response.status_code == 200
+    assert response.json() == {'items': [], 'total': 0}
