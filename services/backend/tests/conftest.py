@@ -1,12 +1,16 @@
 from datetime import datetime, timezone
+from secrets import token_urlsafe
 from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
+from pwdlib import PasswordHash
+from pwdlib.hashers.argon2 import Argon2Hasher
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 from app.db import Base, get_session
 from app.main import app
+from app.models.auth import AccessToken, User
 from app.models.catalogue import Issuer, IssuerDomain, SourceEvidence, ModerationDecision
 from app.services.catalogue import OpportunityFields, publish_approved
 
@@ -31,6 +35,30 @@ def client(session):
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+password_hasher = PasswordHash((Argon2Hasher(),))
+
+
+@pytest.fixture
+def make_user(session):
+    def build(email, password='correct-horse', *, role='moderator'):
+        user = User(email=email, hashed_password=password_hasher.hash(password),
+            is_active=True, is_verified=True, role=role)
+        session.add(user)
+        session.commit()
+        return user
+    return build
+
+
+@pytest.fixture
+def auth_cookie(session):
+    def build(user):
+        token = AccessToken(token=token_urlsafe(32), user_id=user.id)
+        session.add(token)
+        session.commit()
+        return token.token
+    return build
 
 
 @pytest.fixture
