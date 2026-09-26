@@ -14,7 +14,8 @@ from app.models.intake import (CommunityReport, ScreeningRun, Submission,
 from app.schemas.moderation import DecisionFields
 from app.services.catalogue import (InvalidPublication, OpportunityFields,
     publish_approved)
-from app.services.submissions import upload_root, validate_url
+from app.services.submissions import (SubmissionError, upload_root,
+    validate_url)
 
 DECISION_PURGE_DAYS = 7
 TERMINAL_STATES = {'rejected', 'expired', 'closed_unreviewed'}
@@ -162,11 +163,14 @@ def _resolve_issuer(session: Session, *, host: str,
         issuer_name: str | None) -> tuple[Issuer, IssuerDomain | None]:
     domain = session.scalar(
         select(IssuerDomain).where(IssuerDomain.domain == host))
-    if issuer_name:
+    if issuer_name is not None:
+        name = issuer_name.strip()
+        if not name:
+            raise ModerationError(422, 'issuer_name must not be blank')
         issuer = session.scalar(
-            select(Issuer).where(Issuer.name == issuer_name.strip()))
+            select(Issuer).where(Issuer.name == name))
         if issuer is None:
-            issuer = Issuer(name=issuer_name.strip())
+            issuer = Issuer(name=name)
             session.add(issuer)
             session.flush()
     elif domain is not None:
@@ -285,6 +289,11 @@ def decide(session: Session, *, submission: Submission, moderator: User,
     except ModerationError:
         session.rollback()
         raise
+    except SubmissionError as exc:
+        # A stored submitted_url that fails intake validation is a domain
+        # rejection, not a server fault — map it before it escapes as a 500.
+        session.rollback()
+        raise ModerationError(422, exc.detail)
     except InvalidPublication as exc:
         session.rollback()
         raise ModerationError(422, str(exc))

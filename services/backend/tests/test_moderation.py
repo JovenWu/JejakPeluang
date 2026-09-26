@@ -488,6 +488,29 @@ def test_approve_rolls_back_on_failure(client, session, moderator,
     assert session.get(Submission, submission.id).state == 'queued'
 
 
+def test_approve_stored_bad_url_is_422_not_500(client, session, moderator):
+    # A stored submitted_url that fails intake validation (e.g. written
+    # before the checks existed) must surface as 422, not escape as a 500.
+    submission = make_submission(session, url='ftp://example.org/file')
+    response = decide(client, submission.id, approve_fields())
+    assert response.status_code == 422
+    assert session.scalar(select(func.count()).select_from(
+        Opportunity)) == 0
+    assert session.scalar(select(func.count()).select_from(
+        ModerationDecision)) == 0
+
+
+def test_approve_blank_issuer_name_422(client, session, moderator):
+    # Whitespace-only issuer_name must not create an empty Issuer row.
+    submission = make_submission(session)
+    response = decide(client, submission.id,
+        approve_fields(issuer_name='   '))
+    assert response.status_code == 422
+    assert session.scalar(select(func.count()).select_from(Issuer)) == 0
+    assert session.scalar(select(func.count()).select_from(
+        ModerationDecision)) == 0
+
+
 def test_detail_shows_decision_history_and_reports(client, session, moderator,
         make_entry):
     submission = make_submission(session)
