@@ -162,6 +162,23 @@ def test_sweep_processes_inline_without_broker(session):
     assert run.state == 'complete'
 
 
+def test_duplicate_delivery_of_completed_run_at_max_attempts(session):
+    # The reviewer's repro: a run that succeeded on its last allowed attempt
+    # must survive a stale-sweep re-delivery — not be clobbered to 'failed'.
+    submission, run = make_submission(session)
+    fetcher = FakeFetcher({'https://peluang.example.org/info': ok_page()})
+    clients = _clients(fetcher=fetcher)
+    process_run(session, run, clients)
+    run.attempts = MAX_RUN_ATTEMPTS
+    session.commit()
+
+    process_run(session, run, clients)
+
+    assert run.state == 'complete'
+    assert run.error is None
+    assert run.result_json is not None
+
+
 def test_duplicate_delivery_is_idempotent(session):
     submission, run = make_submission(session)
     fetcher = FakeFetcher({'https://peluang.example.org/info': ok_page()})

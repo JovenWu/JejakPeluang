@@ -91,6 +91,22 @@ def test_redis_rate_limiter_fails_open_when_down(caplog):
     assert limiter.check('k', 1, 60) is True
 
 
+def test_get_rate_limiter_is_cached_singleton():
+    from app import security
+    a = security.get_rate_limiter()
+    assert security.get_rate_limiter() is a
+    assert a is security.rate_limiter
+
+
+def test_get_rate_limiter_redis_backend_cached(monkeypatch):
+    monkeypatch.setenv('RATE_LIMITER', 'redis')
+    monkeypatch.setenv('REDIS_URL', 'redis://localhost:6379/0')
+    from app import security
+    a = security.get_rate_limiter()
+    assert isinstance(a, security.RedisRateLimiter)
+    assert security.get_rate_limiter() is a
+
+
 def test_make_publisher_defaults_to_logging(monkeypatch):
     monkeypatch.delenv('REDIS_URL', raising=False)
     monkeypatch.delenv('JOB_BROKER', raising=False)

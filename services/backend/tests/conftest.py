@@ -19,10 +19,12 @@ NOW = datetime(2026, 9, 1, tzinfo=timezone.utc)
 
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
-    from app.security import rate_limiter
-    rate_limiter.reset()
+    from app import security
+    security.rate_limiter.reset()
+    security._configured_limiter = None
     yield
-    rate_limiter.reset()
+    security.rate_limiter.reset()
+    security._configured_limiter = None
 
 
 @pytest.fixture

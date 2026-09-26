@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 import pytest
 from pypdf import PdfWriter
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from app.models.catalogue import (AuditEvent, Issuer, IssuerDomain,
     ModerationDecision, Opportunity, SourceEvidence)
@@ -348,6 +349,25 @@ def test_approve_shortens_retention_and_upload_delete_after(client, session,
     assert timedelta(days=6, hours=23) < delta <= timedelta(days=7)
     stored = session.get(Upload, upload.id)
     assert stored.delete_after == row.purge_after
+
+
+def test_slug_race_surfaces_slug_conflict_not_double_approve(client, session,
+        moderator, monkeypatch):
+    # _resolve_slug's existence check has a TOCTOU window — a concurrent
+    # publish taking the slug must report the real conflict, not 'already
+    # has an approved decision'.
+    from app.services import moderation as moderation_module
+    submission = make_submission(session)
+
+    def boom(*args, **kwargs):
+        raise IntegrityError('INSERT INTO opportunities ...', {},
+            Exception('duplicate key value violates unique constraint '
+                '"opportunities_slug_key"'))
+
+    monkeypatch.setattr(moderation_module, 'publish_approved', boom)
+    response = decide(client, submission.id, approve_fields())
+    assert response.status_code == 409
+    assert 'slug' in response.json()['detail'].lower()
 
 
 def test_needs_more_evidence_keeps_full_retention(client, session, moderator):

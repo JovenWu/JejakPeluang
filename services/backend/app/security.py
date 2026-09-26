@@ -111,8 +111,16 @@ def make_rate_limiter() -> RateLimiter:
     return rate_limiter
 
 
+_configured_limiter: RateLimiter | None = None
+
+
 def get_rate_limiter() -> RateLimiter:
-    return make_rate_limiter()
+    """The configured limiter as a process-wide singleton — Redis-backed
+    limiters hold a client+pool that must not be rebuilt per request."""
+    global _configured_limiter
+    if _configured_limiter is None:
+        _configured_limiter = make_rate_limiter()
+    return _configured_limiter
 
 
 def _trusted_proxy_cidrs() -> list:

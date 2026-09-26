@@ -14,7 +14,6 @@ from app.services.providers import ProviderError, ProviderUnavailable
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = 'jev-latest'
-MAX_STATE_EVIDENCE_CHARS = 3_000
 
 # The question set is deliberately narrow: corroboration and document
 # classification, never a legitimacy verdict.

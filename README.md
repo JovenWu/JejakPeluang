@@ -111,8 +111,8 @@ Provider + runtime variables (also see `infra/.env.example`):
 - `TAVILY_API_KEY`, `TAVILY_BASE_URL`
 - `REDIS_URL` — enables the Redis outbox broker + shared rate limiter.
   `JOB_BROKER=redis` requires it. Without Redis the worker polls the DB:
-  fresh queued runs wait up to `SWEEP_INTERVAL_SECONDS` (30 s) before
-  dispatch — fine for dev, set Redis for prompt processing.
+  fresh queued runs wait up to `STALE_QUEUED_SECONDS` (60 s) before the
+  sweep re-dispatches them — fine for dev, set Redis for prompt processing.
 - `RATE_LIMITER=redis` — shared fixed-window limiter (INCR+EXPIRE);
   default `memory` is per-process. The Redis limiter fails open with a
   warning if the backend is unreachable.
@@ -132,6 +132,9 @@ the api/worker/sweeper containers only.
 
 ## Known caveats
 
+- `ai_source_match` on public listings is an advisory signal only — the spec's
+  ≥95% Jev-precision gate on labeled Indonesian pairs has not been run, so the
+  badge must not be presented as a trust certification.
 - Uploads are sniffed by content (magic bytes + pypdf parse); an AV scanner
   seam exists via `FileScanner` (`app.services.submissions.get_scanner`) —
   drop in a ClamAV adapter behind the same protocol for production.

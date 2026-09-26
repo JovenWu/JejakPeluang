@@ -175,6 +175,23 @@ def test_fetch_follows_redirect_to_public_host():
     assert seen[1].headers['host'] == 'cdn.example.org'
 
 
+def test_fetch_aborts_body_read_at_wall_clock_deadline():
+    # A slow-drip server must not hold the worker past the per-page budget
+    # even when each individual socket read returns within the httpx timeout.
+    calls = [0]
+    def clock():
+        calls[0] += 1
+        return 0.0 if calls[0] <= 2 else 100.0
+
+    def handler(request):
+        return httpx.Response(200, content=iter([b'a' * 8, b'b' * 8]))
+
+    with pytest.raises(FetchError) as exc:
+        fetch('http://example.org/', resolver=resolver_for(PUBLIC_IP),
+            transport=httpx.MockTransport(handler), clock=clock)
+    assert exc.value.kind == 'timeout'
+
+
 def test_fetch_limits_redirects():
     counter = {'n': 0}
 

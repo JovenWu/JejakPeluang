@@ -61,5 +61,7 @@ def downgrade() -> None:
             nullable=False)
     with op.batch_alter_table('screening_runs') as batch_op:
         batch_op.drop_column('finished_at')
+        batch_op.drop_column('started_at')
+        batch_op.drop_column('attempts')
         batch_op.drop_column('error')
         batch_op.drop_column('result_json')

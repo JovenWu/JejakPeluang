@@ -10,6 +10,7 @@ lookup happens at connect time and the rebinding window stays closed.
 
 import ipaddress
 import socket
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -172,11 +173,18 @@ def _send(client: httpx.Client, request: httpx.Request) -> httpx.Response:
             str(exc) or type(exc).__name__) from exc
 
 
-def _read_body(response: httpx.Response, max_bytes: int) -> bytes:
+def _read_body(response: httpx.Response, max_bytes: int, deadline: float,
+        clock=time.monotonic) -> bytes:
     chunks: list[bytes] = []
     size = 0
     try:
         for chunk in response.iter_bytes():
+            # httpx timeouts bound each socket read, not total elapsed — a
+            # trickling server would otherwise hold the worker past the
+            # per-page budget.
+            if clock() > deadline:
+                raise FetchError('timeout',
+                    'response body exceeded the fetch deadline')
             size += len(chunk)
             if size > max_bytes:
                 raise FetchError('too_large',
@@ -196,8 +204,10 @@ def fetch(url: str, *, resolver: Resolver | None = None,
         transport: httpx.BaseTransport | None = None,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         max_redirects: int = MAX_REDIRECTS,
-        max_bytes: int = MAX_BYTES) -> FetchResult:
+        max_bytes: int = MAX_BYTES,
+        clock=time.monotonic) -> FetchResult:
     resolve = resolver or _default_resolver
+    deadline = clock() + timeout
     client = httpx.Client(
         transport=transport or httpx.HTTPTransport(),
         follow_redirects=False,
@@ -240,7 +250,8 @@ def fetch(url: str, *, resolver: Resolver | None = None,
                     or None)
             return FetchResult(requested_url=url, final_url=current,
                 status=response.status_code, content_type=content_type,
-                content=_read_body(response, max_bytes),
+                content=_read_body(response, max_bytes, deadline,
+                    clock=clock),
                 fetched_at=datetime.now(timezone.utc))
     finally:
         client.close()

@@ -36,7 +36,11 @@ def process_run(session: Session, run: ScreeningRun, clients) -> None:
     The conditional UPDATE is the claim: two workers racing the same run id
     get exactly one winner — the loser sees rowcount 0 and moves on. The claim
     commits immediately so the loser never waits on the winner's pipeline.
+    Terminal or in-flight states are never touched — a duplicate delivery of
+    a completed run must not clobber its result.
     """
+    if run.state not in ('queued', 'failed'):
+        return
     if (run.attempts or 0) >= MAX_RUN_ATTEMPTS:
         if run.state != 'failed':
             run.state = 'failed'

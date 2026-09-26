@@ -130,6 +130,20 @@ def ok_page(url='https://peluang.example.org/info',
         content_type='text/plain', content=text)
 
 
+def test_orphaned_run_fails_cleanly(session):
+    # A run whose submission row vanished must fail terminally — not crash on
+    # a None dereference and wedge in 'processing' until the stale sweep.
+    run = ScreeningRun(submission_id=uuid4(), state='queued', created_at=NOW)
+    session.add(run)
+    session.commit()
+
+    result = run_screening(session, run, fetcher=FakeFetcher({}))
+
+    assert result.state == 'failed'
+    assert result.error == 'submission row missing'
+    assert result.finished_at is not None
+
+
 def test_run_url_submission_completes_end_to_end(session):
     submission, run = make_submission(session)
     fetcher = FakeFetcher({'https://peluang.example.org/info': ok_page()})

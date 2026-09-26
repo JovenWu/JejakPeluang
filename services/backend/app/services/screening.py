@@ -195,6 +195,12 @@ def run_screening(session: Session, run: ScreeningRun, *,
     """
     submission = session.get(Submission, run.submission_id)
     now = datetime.now(timezone.utc)
+    if submission is None:
+        run.state = 'failed'
+        run.error = 'submission row missing'
+        run.finished_at = now
+        session.commit()
+        return run
     run.state = 'processing'
     run.error = None
     run.attempts = (run.attempts or 0) + 1

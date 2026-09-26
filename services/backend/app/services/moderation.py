@@ -352,10 +352,15 @@ def decide(session: Session, *, submission: Submission, moderator: User,
     except InvalidPublication as exc:
         session.rollback()
         raise ModerationError(422, str(exc))
-    except IntegrityError:
-        # The partial unique index on approved decisions is the backstop for
-        # a concurrent double-approve; surface it as a conflict, not a 500.
+    except IntegrityError as exc:
+        # Unique-index violations surface at commit. The approve-race
+        # backstop is one cause; a slug claimed by a concurrent publish
+        # (check-then-insert in _resolve_slug) is the other — name it so the
+        # moderator knows to retry, not that the submission was approved.
         session.rollback()
+        orig = str(getattr(exc, 'orig', '') or '').lower()
+        if 'slug' in orig:
+            raise ModerationError(409, 'Slug is already in use')
         raise ModerationError(409,
             'Submission already has an approved decision')
     except Exception:
