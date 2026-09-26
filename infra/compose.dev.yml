@@ -1,0 +1,46 @@
+name: jejakpeluang-dev
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:?set_reviewed_POSTGRES_IMAGE_digest}
+    environment:
+      POSTGRES_USER: jejakpeluang_test
+      POSTGRES_DB: jejakpeluang_e2e
+      POSTGRES_PASSWORD: ${TEST_DB_PASSWORD:?set_TEST_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jejakpeluang_test"]
+      interval: 5s
+      retries: 10
+  api:
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+      args:
+        UV_IMAGE: ${UV_IMAGE:?set_reviewed_UV_IMAGE_digest}
+    environment:
+      DATABASE_URL: postgresql+psycopg://jejakpeluang_test:${TEST_DB_PASSWORD:?set_TEST_DB_PASSWORD}@postgres:5432/jejakpeluang_e2e
+    ports: ["127.0.0.1:${API_PORT:-8000}:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2)"]
+      interval: 5s
+      retries: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:?set_reviewed_NODE_IMAGE_digest}
+        API_INTERNAL_ORIGIN: http://api:8000
+    environment:
+      API_INTERNAL_ORIGIN: http://api:8000
+    ports: ["127.0.0.1:${WEB_PORT:-3000}:3000"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      retries: 10
+    depends_on:
+      api:
+        condition: service_healthy
