@@ -2,7 +2,7 @@
 
 National catalogue of verified scholarships, internships, and competitions for Indonesian students. Every entry is reviewed by a human moderator and linked to its original source.
 
-First slice: a read-only public catalogue — Next.js Bahasa Indonesia UI (`apps/web`), FastAPI + PostgreSQL backend (`services/backend`), shared OpenAPI types (`packages/contracts`), and a Playwright end-to-end flow (`tests/e2e`). Intake, uploads, AI matching, and production deployment are out of scope.
+Public catalogue + controlled intake — Next.js Bahasa Indonesia UI (`apps/web`), FastAPI + PostgreSQL backend (`services/backend`), shared OpenAPI types (`packages/contracts`), and a Playwright end-to-end flow (`tests/e2e`). Guest submissions and uploads feed an invite-only moderator queue (see Intake & moderation below); AI matching and production deployment remain out of scope.
 
 ## Prerequisites
 

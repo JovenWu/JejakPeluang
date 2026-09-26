@@ -68,7 +68,7 @@ def test_community_report_round_trip(session, make_entry):
 
 
 def test_user_and_access_token_round_trip(session):
-    user = User(email='mod@example.org', hashed_password='hashed')
+    user = User(email='mod@example.org', hashed_password='hashed', role='moderator')
     session.add(user)
     session.flush()
     token = AccessToken(token='tok-abc', user_id=user.id)
