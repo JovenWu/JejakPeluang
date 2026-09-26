@@ -1,0 +1,1 @@
+{"name":"@jejakpeluang/contracts","private":true,"type":"module","types":"./src/generated.ts","exports":{"./generated":{"types":"./src/generated.ts","default":"./src/generated.ts"}},"scripts":{"generate":"openapi-typescript openapi.json -o src/generated.ts"},"devDependencies":{"openapi-typescript":"7.13.0"}}
