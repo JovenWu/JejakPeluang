@@ -6,10 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint .",
     "test": "vitest run"
   },
   "dependencies": {
+    "@jejakpeluang/contracts": "workspace:*",
     "next": "16.3.5",
     "openapi-fetch": "0.17.0",
     "react": "19.3.0",
