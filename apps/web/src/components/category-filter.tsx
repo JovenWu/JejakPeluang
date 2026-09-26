@@ -35,7 +35,7 @@ export function CategoryFilter({ active, q }: CategoryFilterProps): JSX.Element 
   return (
     <nav aria-label="Filter kategori" className="flex flex-wrap items-center gap-2">
       <Link
-        aria-current={active === null ? 'true' : undefined}
+        aria-current={active === null ? 'page' : undefined}
         className={chipClass(active === null)}
         href={filterHref(null, q)}
       >
@@ -43,7 +43,7 @@ export function CategoryFilter({ active, q }: CategoryFilterProps): JSX.Element 
       </Link>
       {CATEGORIES.map((category) => (
         <Link
-          aria-current={active === category ? 'true' : undefined}
+          aria-current={active === category ? 'page' : undefined}
           className={chipClass(active === category)}
           href={filterHref(category, q)}
           key={category}

@@ -1,5 +1,6 @@
 .git
 .worktrees
+.superpowers/
 **/node_modules
 **/.next
 **/out
@@ -14,6 +15,4 @@
 **/playwright-report
 uploads
 *.tsbuildinfo
-.env
-.env.*
-infra/.env
+**/.env*
