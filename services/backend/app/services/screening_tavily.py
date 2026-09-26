@@ -19,6 +19,15 @@ MAX_RESULTS = 5
 MAX_QUERY_CHARS = 300
 
 
+def minimized_query(title: str | None, issuer: str | None) -> str:
+    """Title + issuer, dropping the issuer when the title already names it."""
+    parts = [title] if title else []
+    if issuer and (not title
+            or issuer.strip().lower() not in title.lower()):
+        parts.append(issuer)
+    return ' '.join(p for p in parts if p).strip()
+
+
 class TavilySearcher:
     """POSTs /search and returns raw candidate dicts; injectable client."""
 
@@ -37,7 +46,7 @@ class TavilySearcher:
         """Minimized query: title + issuer only. Returns [{'url','title'}]."""
         if not self.api_key:
             raise ProviderError('config', 'TAVILY_API_KEY is not set')
-        terms = ' '.join(part for part in (title, issuer) if part).strip()
+        terms = minimized_query(title, issuer)
         if not terms:
             return []
         payload: dict[str, Any] = {

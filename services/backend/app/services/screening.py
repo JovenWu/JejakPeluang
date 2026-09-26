@@ -143,23 +143,28 @@ def _known_issuer_domains(session: Session, extraction: dict[str, Any],
 
 
 def _compute_ai_source_match(result: dict[str, Any]) -> bool | None:
-    """The public badge flag: only when Jev judged real fetched evidence.
-
-    None when there is no signal (no evidence or Jev unavailable) — the
-    listing then shows no AI badge, per spec.
+    """True when Jev found at least one fetched page it judges to be the
+    issuer's official listing of this opportunity; False when evidence exists
+    but none qualifies; None when there was nothing to judge.
     """
-    judgments = result.get('judgments') or {}
-    comparison = result.get('comparison') or {}
-    has_evidence = any(item.get('text') for item in result.get('evidence', []))
-    official = (judgments.get('official_announcement') or {}).get('noul')
-    doc_kind = (judgments.get('doc_kind') or {}).get('choice')
-    if official is None or doc_kind is None or not has_evidence:
+    pages = result.get('judgments') or []
+    if not pages:
         return None
-    verdicts = (comparison.get('field_verdicts') or {}).values()
+    verdicts = ((result.get('comparison') or {}).get('field_verdicts')
+        or {}).values()
     conflicts = any(isinstance(v, dict) and v.get('verdict') == 'conflicting'
         for v in verdicts)
-    return (official >= AI_MATCH_NOUL_THRESHOLD
-        and doc_kind == 'official_listing' and not conflicts)
+    if conflicts:
+        return False
+    for page in pages:
+        answers = page.get('answers') or {}
+        official = (answers.get('official_announcement') or {}).get('noul')
+        doc_kind = (answers.get('doc_kind') or {}).get('choice')
+        if (official is not None and doc_kind is not None
+                and official >= AI_MATCH_NOUL_THRESHOLD
+                and doc_kind == 'official_listing'):
+            return True
+    return False
 
 
 def _base_result() -> dict[str, Any]:
@@ -266,24 +271,35 @@ def run_screening(session: Session, run: ScreeningRun, *,
 
         if (judge is not None and has_text_evidence and extraction
                 and not deadline_hit()):
-            state = {
-                'submitted': extraction,
-                'submitter_context': submission.context or '',
-                'evidence': _extraction_to_jev_evidence(evidence),
-            }
-            try:
-                result['judgments'], jev_model = judge.judge(state,
-                    has_deadline=bool(extraction.get('deadline')))
-                if jev_model:
-                    models.append(jev_model)
-            except ProviderUnavailable as exc:
-                errors.append({'stage': 'judge', 'kind': exc.kind,
-                    'detail': exc.detail})
-                if outcome == 'complete':
-                    outcome = 'provider_unavailable'
-            except ProviderError as exc:
-                errors.append({'stage': 'judge', 'kind': exc.kind,
-                    'detail': exc.detail})
+            pages = _extraction_to_jev_evidence(evidence)
+            judgments: list[dict[str, Any]] = []
+            jev_model = None
+            for page in pages:
+                if deadline_hit():
+                    errors.append({'stage': 'judge',
+                        'kind': 'deadline_exceeded',
+                        'detail': 'run deadline hit mid-judging'})
+                    break
+                state = {'submitted': extraction,
+                    'submitter_context': submission.context or '',
+                    'evidence': [page]}
+                try:
+                    answers, jev_model = judge.judge(state,
+                        has_deadline=bool(extraction.get('deadline')))
+                except ProviderUnavailable as exc:
+                    errors.append({'stage': 'judge', 'kind': exc.kind,
+                        'detail': exc.detail})
+                    if outcome == 'complete':
+                        outcome = 'provider_unavailable'
+                    break
+                except ProviderError as exc:
+                    errors.append({'stage': 'judge', 'kind': exc.kind,
+                        'detail': exc.detail})
+                    break
+                judgments.append({'url': page['url'], 'answers': answers})
+            result['judgments'] = judgments or None
+            if jev_model:
+                models.append(jev_model)
         elif judge is None:
             errors.append({'stage': 'judge', 'kind': 'not_configured',
                 'detail': 'no Jev judge configured'})
@@ -316,8 +332,8 @@ def run_screening(session: Session, run: ScreeningRun, *,
 def _discover(searcher: Searcher, extraction: dict[str, Any],
         domains: list[str], errors: list[dict[str, Any]]) -> dict[str, Any]:
     """Tavily discovery: minimized title+issuer query, issuer domains first."""
-    query = ' '.join(part for part in (extraction.get('title'),
-        extraction.get('issuer')) if part).strip()
+    from app.services.screening_tavily import minimized_query
+    query = minimized_query(extraction.get('title'), extraction.get('issuer'))
     discovery = {'status': 'skipped', 'query': query or None, 'results': []}
     if not query:
         return discovery

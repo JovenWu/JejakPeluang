@@ -145,7 +145,8 @@ def test_run_url_submission_completes_end_to_end(session):
     assert result['extraction']['title'] == 'Beasiswa Unggulan 2026'
     assert result['comparison']['field_verdicts']['title']['verdict'] == (
         'supported')
-    assert result['judgments']['official_announcement']['noul'] == 0.92
+    assert result['judgments'][0]['answers'][
+        'official_announcement']['noul'] == 0.92
     assert result['ai_source_match'] is True
     assert submission.state == 'review_pending'
     assert run.attempts == 1 and run.started_at is not None

@@ -68,8 +68,16 @@ def default_publisher() -> Publisher:
 
 
 def pop_run_id(client, timeout_seconds: int = 5) -> UUID | None:
-    """Blocking pop of one screening-run id from the worker queue."""
-    item = client.blpop(QUEUE_KEY, timeout=timeout_seconds)
+    """Blocking pop of one screening-run id from the worker queue.
+
+    redis-py surfaces an empty BLPOP window as TimeoutError when a socket
+    timeout is configured — that is a normal empty pop, not a failure.
+    """
+    import redis as redis_lib
+    try:
+        item = client.blpop(QUEUE_KEY, timeout=timeout_seconds)
+    except redis_lib.exceptions.TimeoutError:
+        return None
     if item is None:
         return None
     try:

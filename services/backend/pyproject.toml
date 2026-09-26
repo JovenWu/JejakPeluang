@@ -22,6 +22,9 @@ dependencies = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "live: hits real OpenRouter/Tavily/TypeSafe APIs (needs JP_LIVE_TESTS=1 and provider keys)",
+]
 
 [dependency-groups]
 dev = [

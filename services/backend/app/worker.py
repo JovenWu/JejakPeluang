@@ -87,6 +87,8 @@ def sweep(session: Session, redis_client, publisher, clients) -> int:
 def main() -> None:
     logging.basicConfig(level=logging.INFO,
         format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    for noisy in ('httpx', 'httpx2', 'typesafe_sdk'):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     from app.config import assert_production_config
     assert_production_config()
     clients = default_clients()
@@ -110,15 +112,21 @@ def main() -> None:
             except Exception:
                 logger.exception('broker read failed; retrying')
                 time.sleep(5)
-        with Session(engine()) as session:
-            if run_id is not None:
-                run = session.get(ScreeningRun, run_id)
-                if run is not None:
-                    process_run(session, run, clients)
-            if (time.monotonic() - last_sweep >= SWEEP_INTERVAL_SECONDS
-                    or redis_client is None):
-                sweep(session, redis_client, publisher, clients)
-                last_sweep = time.monotonic()
+        try:
+            with Session(engine()) as session:
+                if run_id is not None:
+                    run = session.get(ScreeningRun, run_id)
+                    if run is not None:
+                        process_run(session, run, clients)
+                if (time.monotonic() - last_sweep >= SWEEP_INTERVAL_SECONDS
+                        or redis_client is None):
+                    sweep(session, redis_client, publisher, clients)
+                    last_sweep = time.monotonic()
+        except Exception:
+            # Startup races (schema not migrated yet) and transient DB
+            # failures must not kill the worker — retry next cycle.
+            logger.exception('worker cycle failed; retrying')
+            time.sleep(5)
         if redis_client is None:
             time.sleep(5)
 
