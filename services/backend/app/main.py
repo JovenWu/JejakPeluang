@@ -4,7 +4,10 @@ from app.api.health import router as health_router
 from app.api.moderation import router as moderation_router
 from app.api.opportunities import router as opportunities_router
 from app.api.submissions import router as submissions_router
+from app.config import assert_production_config
 from app.security import CsrfOriginMiddleware
+
+assert_production_config()
 
 app = FastAPI(title='JejakPeluang API', version='0.1.0')
 app.add_middleware(CsrfOriginMiddleware)

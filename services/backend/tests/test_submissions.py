@@ -11,17 +11,9 @@ from sqlalchemy import func, select
 
 from app.models.catalogue import ModerationDecision
 from app.models.intake import JobOutbox, ScreeningRun, Submission, Upload
-from app.security import rate_limiter
 from app.services import submissions as submissions_service
 
 NOW = datetime(2026, 9, 1, tzinfo=timezone.utc)
-
-
-@pytest.fixture(autouse=True)
-def reset_rate_limiter():
-    rate_limiter.reset()
-    yield
-    rate_limiter.reset()
 
 
 @pytest.fixture

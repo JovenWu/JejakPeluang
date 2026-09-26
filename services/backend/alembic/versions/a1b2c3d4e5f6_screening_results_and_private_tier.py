@@ -24,6 +24,11 @@ def upgrade() -> None:
         batch_op.add_column(
             sa.Column('error', sa.String(length=255), nullable=True))
         batch_op.add_column(
+            sa.Column('attempts', sa.Integer(), nullable=False,
+                server_default='0'))
+        batch_op.add_column(
+            sa.Column('started_at', sa.DateTime(timezone=True), nullable=True))
+        batch_op.add_column(
             sa.Column('finished_at', sa.DateTime(timezone=True), nullable=True))
     # issuer_confirmed_private listings have no public domain/evidence/url.
     with op.batch_alter_table('opportunities') as batch_op:

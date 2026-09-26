@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import time
 from http.cookies import SimpleCookie
 from os import environ
@@ -8,6 +9,8 @@ from urllib.parse import urlsplit
 from fastapi import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
+
+logger = logging.getLogger(__name__)
 
 RATE_LIMIT_SALT = environ.get('RATE_LIMIT_SALT', 'jp-dev-rate-limit-salt')
 AUTH_COOKIE_NAME = 'jp_auth'
@@ -60,11 +63,55 @@ class InMemoryRateLimiter:
         self._buckets.clear()
 
 
+class RedisRateLimiter:
+    """Fixed-window limiter shared across processes via Redis INCR/EXPIRE.
+
+    Fail-open by design: if Redis is unreachable the request is allowed and
+    a warning is logged — rate limiting is defense-in-depth, not worth an
+    outage. Set RATE_LIMITER=redis with REDIS_URL to enable.
+    """
+
+    def __init__(self, redis_url: str | None = None, client=None,
+            clock=time.time):
+        if client is not None:
+            self._client = client
+        else:
+            import redis as redis_lib
+            self._client = redis_lib.Redis.from_url(redis_url)
+        self._clock = clock
+        self._failures = 0
+
+    def check(self, key: str, limit: int, window_seconds: int) -> bool:
+        window = int(self._clock() // window_seconds)
+        rkey = f'jp:rl:{key}:{window}'
+        try:
+            count = self._client.incr(rkey)
+            if count == 1:
+                self._client.expire(rkey, window_seconds * 2)
+        except Exception:
+            self._failures += 1
+            if self._failures == 1 or self._failures % 100 == 0:
+                logger.warning('rate limiter backend unavailable '
+                    '(fail-open); failures=%d', self._failures)
+            return True
+        return count <= limit
+
+
 rate_limiter = InMemoryRateLimiter()
 
 
-def get_rate_limiter() -> RateLimiter:
+def make_rate_limiter() -> RateLimiter:
+    """RATE_LIMITER=redis selects the shared limiter; default is in-memory."""
+    if environ.get('RATE_LIMITER') == 'redis':
+        redis_url = environ.get('REDIS_URL')
+        if not redis_url:
+            raise RuntimeError('RATE_LIMITER=redis requires REDIS_URL')
+        return RedisRateLimiter(redis_url)
     return rate_limiter
+
+
+def get_rate_limiter() -> RateLimiter:
+    return make_rate_limiter()
 
 
 def _client_ip(request: Request) -> str:
