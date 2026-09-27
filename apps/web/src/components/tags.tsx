@@ -66,7 +66,7 @@ export const HEADLINE_TONE: Record<Headline, Tone> = {
 }
 
 export function CategoryLabel({ category }: { category: Category }): ReactNode {
-  return <span className="kicker text-ink-2!">{CATEGORY_LABEL[category]}</span>
+  return <span className="kicker block text-ink-2!">{CATEGORY_LABEL[category]}</span>
 }
 
 const DEADLINE_CLASS: Record<DeadlineTone, string> = {

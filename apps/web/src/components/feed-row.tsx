@@ -20,7 +20,7 @@ export function IncomingRow({ item }: { item: IncomingItem }): ReactNode {
   const title = summary.title ?? (host ? `Kiriman dari ${host}` : 'Kiriman berkas')
   return (
     <li className="group @container relative border-b border-rule transition-colors hover:bg-surface">
-      <div className="grid gap-x-6 gap-y-1.5 py-4 @2xl:grid-cols-[7rem_1fr_auto] @2xl:px-2">
+      <div className="grid gap-x-6 gap-y-1.5 px-2 py-4 @2xl:grid-cols-[7rem_1fr_auto]">
         <p className="font-mono text-2xs text-ink-3 @2xl:pt-1 @2xl:text-xs">
           {item.ref}
           <span className="@2xl:hidden"> · {relativeTime(item.created_at)}</span>
@@ -59,12 +59,12 @@ export function CatalogueRow({ item }: { item: OpportunitySummary }): ReactNode 
   const host = hostOf(item.source_url)
   return (
     <li className="group @container relative border-b border-rule transition-colors hover:bg-surface">
-      <div className="grid grid-cols-[1fr_auto] items-center gap-x-6 gap-y-3 py-5 @2xl:grid-cols-[1fr_12rem_auto] @2xl:px-2">
+      <div className="grid grid-cols-[1fr_auto] items-center gap-x-6 gap-y-1.5 px-2 py-4 @2xl:grid-cols-[1fr_12rem_auto] @2xl:gap-y-3 @2xl:py-5">
         <div className="col-span-2 min-w-0 @2xl:col-span-1">
           <CategoryLabel category={item.category} />
           <Link
             href={`/katalog/${item.slug}`}
-            className="mt-0.5 block text-[1.0625rem] leading-snug font-semibold text-ink after:absolute after:inset-0 group-hover:underline"
+            className="mt-0.5 block text-base leading-snug font-semibold text-ink after:absolute after:inset-0 group-hover:underline @2xl:text-[1.0625rem]"
           >
             {item.title}
           </Link>

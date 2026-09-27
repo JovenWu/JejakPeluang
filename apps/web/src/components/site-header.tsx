@@ -1,18 +1,14 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
+import { BrandMark } from './brand-mark'
 import { NavLinks } from './nav-links'
 
 export function Wordmark(): ReactNode {
   return (
     <span className="inline-flex items-center gap-2.5">
-      <span
-        aria-hidden
-        className="grid size-7 -rotate-3 place-items-center rounded-[3px] border-2 border-stamp font-mono text-[0.625rem] font-bold tracking-tight text-stamp"
-      >
-        JP
-      </span>
-      <span className="text-[1.0625rem] font-extrabold tracking-[-0.02em] text-ink">
+      <BrandMark />
+      <span className="text-[1.0625rem] font-extrabold tracking-[-0.035em] text-ink">
         Jejak<span className="font-medium text-ink-2">Peluang</span>
       </span>
     </span>

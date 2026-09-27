@@ -24,6 +24,10 @@ export const metadata: Metadata = {
   },
   description:
     'Tempel tautan atau unggah poster beasiswa, magang, atau lomba. AI mencocokkan isinya dengan sumber resmi dalam hitungan detik; moderator memverifikasi sebelum masuk katalog.',
+  icons: {
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    shortcut: ['/icon.svg'],
+  },
 }
 
 export const viewport: Viewport = {

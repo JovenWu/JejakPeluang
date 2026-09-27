@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
+import { BrandMark } from '@/components/brand-mark'
 import { LogoutButton } from '@/components/moderator/logout-button'
 import { requireModerator } from '@/lib/moderator'
 
@@ -20,12 +21,7 @@ export default async function ConsoleLayout({ children }: Props): Promise<ReactN
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-2.5 sm:px-6">
           <div className="flex items-center gap-5">
             <Link href="/moderator" className="flex items-center gap-2.5 font-extrabold tracking-tight">
-              <span
-                aria-hidden
-                className="grid size-6 -rotate-3 place-items-center rounded-[3px] border-2 border-paper font-mono text-[0.5625rem] font-bold"
-              >
-                JP
-              </span>
+              <BrandMark size="sm" inverse />
               Konsol moderator
             </Link>
             <Link href="/" className="hidden text-sm text-paper/70 hover:text-paper sm:inline">
