@@ -42,19 +42,11 @@ Status kepercayaan selalu tampil sebagai cap dengan teks yang jelas:
 
 ## Arsitektur
 
-```mermaid
-flowchart LR
-  U[Pelajar / Moderator] --> W[Web<br/>Next.js 16]
-  W -- /api --> A[API<br/>FastAPI]
-  A --> DB[(PostgreSQL)]
-  A -- job_outbox --> R[(Redis)]
-  R --> K[Worker screening]
-  K --> F[Fetcher anti-SSRF] --> P[Web publik]
-  F <--> X[Renderer<br/>Chromium terisolasi]
-  K --> AI[OpenRouter · Tavily · TypeSafe Jev]
-  K --> DB
-  S[Sweeper retensi] --> DB
-```
+<p align="center">
+  <img src="docs/assets/architecture.png" alt="Arsitektur JejakPeluang: web Next.js, API FastAPI, PostgreSQL, Redis, worker screening, fetcher anti-SSRF, renderer, dan layanan AI pihak ketiga" width="100%">
+</p>
+
+Garis ungu menunjukkan alur screening AI setelah sebuah kiriman diterima.
 
 | Lapisan | Teknologi |
 |---|---|
