@@ -299,6 +299,84 @@ def test_status_returns_safe_projection(client, session):
     assert leaked.isdisjoint(body)
 
 
+SCREENING_RESULT = {
+    'schema_version': 'screening.v1',
+    'outcome': 'complete',
+    'submission_text': 'SECRET-SUBMISSION-TEXT',
+    'extraction': {'title': 'Beasiswa Unggulan',
+        'issuer': 'Kemendikbudristek', 'deadline': '2026-11-30',
+        'category': 'scholarship', 'fees': 'gratis',
+        'requested_data': ['CV']},
+    'discovery': {'query': 'q', 'results': [{'url': 'u'}]},
+    'evidence': [{'url': 'https://kemdikbud.go.id/x',
+        'final_url': 'https://kemdikbud.go.id/x', 'status': 200,
+        'text': 'EVIDENCE-BODY-TEXT', 'origin': 'tavily'}],
+    'comparison': {'field_verdicts': {
+        'deadline': {'verdict': 'supported', 'quote': 's.d. 30 November'}}},
+    'judgments': [{'url': 'https://kemdikbud.go.id/x', 'answers': {
+        'official_announcement': {'noul': 0.92},
+        'doc_kind': {'choice': 'official_listing'}}}],
+    'ai_source_match': True,
+    'errors': [{'stage': 'discovery', 'kind': 'unavailable',
+        'detail': 'INTERNAL-PROVIDER-DETAIL'}],
+    'provider_version': 'INTERNAL',
+    'model_version': 'm',
+}
+
+
+def make_run(session, submission, *, state='complete', result=None):
+    run = ScreeningRun(submission_id=submission.id, state=state,
+        result_json=result, created_at=NOW,
+        finished_at=NOW if state == 'complete' else None)
+    session.add(run)
+    session.commit()
+    return run
+
+
+def test_status_includes_sanitized_screening(client, session):
+    submission, token = make_submission(session)
+    submission.state = 'review_pending'
+    make_run(session, submission, result=SCREENING_RESULT)
+    response = client.get(f'/api/v1/submissions/{submission.ref}',
+        headers={'X-Receipt-Token': token})
+    assert response.status_code == 200
+    screening = response.json()['screening']
+    assert screening['state'] == 'complete'
+    assert screening['outcome'] == 'complete'
+    assert screening['extracted']['title'] == 'Beasiswa Unggulan'
+    assert screening['field_verdicts']['deadline']['verdict'] == 'supported'
+    assert screening['sources'] == [{'url': 'https://kemdikbud.go.id/x',
+        'status': 200, 'official': True}]
+    assert screening['ai_source_match'] is True
+    assert screening['errors'] == [{'stage': 'discovery',
+        'kind': 'unavailable'}]
+    # No internal material ever reaches the guest payload.
+    raw = response.text
+    for secret in ('SECRET-SUBMISSION-TEXT', 'EVIDENCE-BODY-TEXT',
+            'INTERNAL-PROVIDER-DETAIL', 'INTERNAL',
+            'provider_version', 'submission_text', 'judgments'):
+        assert secret not in raw
+
+
+def test_status_screening_while_processing(client, session):
+    submission, token = make_submission(session)
+    make_run(session, submission, state='processing')
+    response = client.get(f'/api/v1/submissions/{submission.ref}',
+        headers={'X-Receipt-Token': token})
+    screening = response.json()['screening']
+    assert screening['state'] == 'processing'
+    assert screening['outcome'] is None
+    assert screening['extracted'] is None
+    assert screening['sources'] == []
+
+
+def test_status_without_run_has_null_screening(client, session):
+    submission, token = make_submission(session)
+    response = client.get(f'/api/v1/submissions/{submission.ref}',
+        headers={'X-Receipt-Token': token})
+    assert response.json()['screening'] is None
+
+
 def test_status_reports_needs_more_evidence(client, session, official_source):
     submission, token = make_submission(session)
     decision = ModerationDecision(source_evidence_id=official_source.id,

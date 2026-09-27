@@ -344,6 +344,76 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "IncomingItem": {
+        "description": "Public feed row: an AI-checked submission awaiting moderation.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "screening": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScreeningView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "submitted_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted Url"
+          },
+          "verification": {
+            "const": "ai_checked",
+            "title": "Verification",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref",
+          "created_at",
+          "verification",
+          "submitted_url",
+          "screening"
+        ],
+        "title": "IncomingItem",
+        "type": "object"
+      },
+      "IncomingListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/IncomingItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "IncomingListResponse",
+        "type": "object"
+      },
       "OpportunityDetail": {
         "properties": {
           "ai_source_match": {
@@ -443,6 +513,15 @@
               "issuer_confirmed_private"
             ],
             "title": "Trust Basis",
+            "type": "string"
+          },
+          "verification": {
+            "default": "moderator_verified",
+            "enum": [
+              "ai_checked",
+              "moderator_verified"
+            ],
+            "title": "Verification",
             "type": "string"
           },
           "verified_at": {
@@ -570,6 +649,15 @@
               "issuer_confirmed_private"
             ],
             "title": "Trust Basis",
+            "type": "string"
+          },
+          "verification": {
+            "default": "moderator_verified",
+            "enum": [
+              "ai_checked",
+              "moderator_verified"
+            ],
+            "title": "Verification",
             "type": "string"
           },
           "verified_at": {
@@ -759,6 +847,38 @@
         "title": "ReportView",
         "type": "object"
       },
+      "ScreeningErrorView": {
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          }
+        },
+        "required": [
+          "stage",
+          "kind"
+        ],
+        "title": "ScreeningErrorView",
+        "type": "object"
+      },
       "ScreeningRunMeta": {
         "properties": {
           "created_at": {
@@ -856,6 +976,137 @@
           "created_at"
         ],
         "title": "ScreeningRunMeta",
+        "type": "object"
+      },
+      "ScreeningView": {
+        "description": "Guest/public-safe projection of a screening run \u2014 extracted fields,\nper-field source verdicts, and the official-source signal. No\nsubmission_text, evidence bodies, or provider internals.",
+        "properties": {
+          "ai_source_match": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Source Match"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ScreeningErrorView"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "extracted": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extracted"
+          },
+          "field_verdicts": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Verdicts"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceCheck"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "outcome",
+          "extracted",
+          "field_verdicts",
+          "sources",
+          "ai_source_match",
+          "errors",
+          "finished_at"
+        ],
+        "title": "ScreeningView",
+        "type": "object"
+      },
+      "SourceCheck": {
+        "description": "One fetched source page and whether Jev judged it the issuer's\nofficial listing. Body text is never exposed publicly.",
+        "properties": {
+          "official": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "status",
+          "official"
+        ],
+        "title": "SourceCheck",
         "type": "object"
       },
       "SubmissionCreated": {
@@ -1043,6 +1294,16 @@
           "ref": {
             "title": "Ref",
             "type": "string"
+          },
+          "screening": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScreeningView"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "state": {
             "title": "State",
@@ -1601,6 +1862,105 @@
           }
         },
         "summary": "List Opportunities",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/v1/opportunities/incoming": {
+      "get": {
+        "description": "Public feed of AI-checked submissions awaiting moderator review.\n\nEvery row is an unmoderated submission \u2014 'ai_checked' must never be\npresented as a trust badge; it upgrades to 'moderator_verified' only\nwhen a human approves it into the catalogue.",
+        "operationId": "list_incoming_feed_api_v1_opportunities_incoming_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncomingListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Incoming Feed",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/v1/opportunities/incoming/{ref}": {
+      "get": {
+        "operationId": "get_incoming_item_api_v1_opportunities_incoming__ref__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncomingItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Incoming Item",
         "tags": [
           "opportunities"
         ]

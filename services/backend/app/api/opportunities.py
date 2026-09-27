@@ -3,9 +3,11 @@ from sqlalchemy.orm import Session
 from app.db import get_session
 from app.schemas.moderation import ReportCreated, ReportRequest
 from app.schemas.opportunity import Category, OpportunityDetail, OpportunityListResponse, OpportunitySummary
+from app.schemas.submission import IncomingItem, IncomingListResponse
 from app.security import RateLimiter, client_net_hash, get_rate_limiter
 from app.services.catalogue import get_public, list_public
 from app.services.moderation import create_report
+from app.services.submissions import get_incoming, list_incoming
 
 router = APIRouter(prefix='/opportunities', tags=['opportunities'])
 
@@ -24,6 +26,28 @@ def list_opportunities(session: Session = Depends(get_session),
     limit: int = Query(20, ge=1, le=50), offset: int = Query(0, ge=0)):
     items, total = list_public(session, category=category, q=q, limit=limit, offset=offset)
     return OpportunityListResponse(items=[to_summary(item) for item in items], total=total)
+
+
+@router.get('/incoming', response_model=IncomingListResponse)
+def list_incoming_feed(session: Session = Depends(get_session),
+    limit: int = Query(20, ge=1, le=50), offset: int = Query(0, ge=0)):
+    """Public feed of AI-checked submissions awaiting moderator review.
+
+    Every row is an unmoderated submission — 'ai_checked' must never be
+    presented as a trust badge; it upgrades to 'moderator_verified' only
+    when a human approves it into the catalogue.
+    """
+    items, total = list_incoming(session, limit=limit, offset=offset)
+    return IncomingListResponse(
+        items=[IncomingItem(**item) for item in items], total=total)
+
+
+@router.get('/incoming/{ref}', response_model=IncomingItem)
+def get_incoming_item(ref: str, session: Session = Depends(get_session)):
+    item = get_incoming(session, ref)
+    if item is None:
+        raise HTTPException(status_code=404, detail='Incoming item not found')
+    return IncomingItem(**item)
 
 
 @router.get('/{slug}', response_model=OpportunityDetail)

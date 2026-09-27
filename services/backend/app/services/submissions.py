@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 from pypdf import PdfReader
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.catalogue import ModerationDecision
@@ -305,6 +305,67 @@ def intake_submission(session: Session, *, url, context, contact_email, files,
     return submission, receipt_token
 
 
+def _official_per_url(result: dict) -> dict[str, bool | None]:
+    """Map each judged evidence URL to its official-listing verdict."""
+    official: dict[str, bool | None] = {}
+    for page in result.get('judgments') or []:
+        answers = page.get('answers') or {}
+        noul = (answers.get('official_announcement') or {}).get('noul')
+        doc_kind = (answers.get('doc_kind') or {}).get('choice')
+        if noul is None and doc_kind is None:
+            official[page.get('url')] = None
+        else:
+            official[page.get('url')] = bool(
+                noul is not None and doc_kind is not None
+                and noul >= 0.6 and doc_kind == 'official_listing')
+    return official
+
+
+def _public_sources(result: dict) -> list[dict]:
+    """Fetched evidence pages, minus body text — safe for public display."""
+    official = _official_per_url(result)
+    return [{'url': item.get('final_url') or item.get('url'),
+        'status': item.get('status'),
+        'official': official.get(item.get('url'), official.get(
+            item.get('final_url')))}
+        for item in result.get('evidence') or []]
+
+
+def screening_projection(run: ScreeningRun | None) -> dict | None:
+    """Guest/public-safe view of a screening run.
+
+    Everything in it is either the submitter's own extracted data or public
+    web facts (source URLs, field verdicts). It deliberately omits
+    submission_text, evidence body text, provider internals, PII, and any
+    verdict language — the AI reports what it found, never 'safe'/'scam'.
+    """
+    if run is None:
+        return None
+    projection: dict = {'state': run.state, 'outcome': None,
+        'extracted': None, 'field_verdicts': None, 'sources': [],
+        'ai_source_match': None, 'errors': [],
+        'finished_at': run.finished_at}
+    result = run.result_json if isinstance(run.result_json, dict) else None
+    if result is None:
+        return projection
+    projection['outcome'] = result.get('outcome')
+    projection['extracted'] = result.get('extraction')
+    projection['field_verdicts'] = ((result.get('comparison') or {})
+        .get('field_verdicts'))
+    projection['sources'] = _public_sources(result)
+    projection['ai_source_match'] = result.get('ai_source_match')
+    projection['errors'] = [{'stage': e.get('stage'), 'kind': e.get('kind')}
+        for e in result.get('errors') or [] if isinstance(e, dict)]
+    return projection
+
+
+def _latest_run(session: Session,
+        submission: Submission) -> ScreeningRun | None:
+    return session.scalar(select(ScreeningRun).where(
+        ScreeningRun.submission_id == submission.id).order_by(
+        ScreeningRun.created_at.desc()).limit(1))
+
+
 def status_view(session: Session, submission: Submission) -> dict:
     decision = session.scalar(select(ModerationDecision).where(
         ModerationDecision.submission_id == submission.id).order_by(
@@ -318,4 +379,41 @@ def status_view(session: Session, submission: Submission) -> dict:
         'decision': decision.status if decision else None,
         'needs_more_evidence': bool(
             decision and decision.status == 'needs_more_evidence'),
+        'screening': screening_projection(
+            _latest_run(session, submission)),
     }
+
+
+def list_incoming(session: Session, *, limit: int,
+        offset: int) -> tuple[list[dict], int]:
+    """Public feed of AI-checked submissions awaiting moderator review —
+    newest first. Sanitized like screening_projection: no context, PII,
+    uploads, or client identifiers ever leave this function."""
+    statement = select(Submission).where(
+        Submission.state == 'review_pending')
+    total = session.scalar(
+        select(func.count()).select_from(statement.subquery())) or 0
+    submissions = session.scalars(statement.order_by(
+        Submission.created_at.desc(), Submission.ref).limit(
+        limit).offset(offset)).all()
+    items = [{
+        'ref': submission.ref,
+        'created_at': submission.created_at,
+        'verification': 'ai_checked',
+        'submitted_url': submission.submitted_url,
+        'screening': screening_projection(
+            _latest_run(session, submission)),
+    } for submission in submissions]
+    return items, total
+
+
+def get_incoming(session: Session, ref: str) -> dict | None:
+    submission = session.scalar(select(Submission).where(
+        Submission.ref == ref, Submission.state == 'review_pending'))
+    if submission is None:
+        return None
+    return {'ref': submission.ref, 'created_at': submission.created_at,
+        'verification': 'ai_checked',
+        'submitted_url': submission.submitted_url,
+        'screening': screening_projection(
+            _latest_run(session, submission))}

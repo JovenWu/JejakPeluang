@@ -4,6 +4,7 @@ from pydantic import BaseModel, HttpUrl
 
 Category = Literal['scholarship', 'internship', 'competition']
 TrustBasis = Literal['public_source', 'issuer_confirmed_private']
+Verification = Literal['ai_checked', 'moderator_verified']
 
 
 class OpportunitySummary(BaseModel):
@@ -15,6 +16,9 @@ class OpportunitySummary(BaseModel):
     checked_at: datetime
     verified_at: datetime
     trust_basis: TrustBasis
+    # every listed opportunity required a human approval; the badge pairs
+    # with 'ai_checked' feed items that have not yet been reviewed
+    verification: Verification = 'moderator_verified'
     status: Literal['published', 'expired', 'needs_review']
     source_url: HttpUrl | None
     # null when no screening signal exists (unscreened or Jev unavailable)

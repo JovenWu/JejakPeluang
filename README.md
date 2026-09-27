@@ -1,8 +1,8 @@
 # JejakPeluang
 
-National catalogue of verified scholarships, internships, and competitions for Indonesian students. Every entry is reviewed by a human moderator and linked to its original source.
+Instant AI fact-check for Indonesian opportunity posts, plus a national catalogue of verified scholarships, internships, and competitions. Every catalogue entry is reviewed by a human moderator and linked to its original source.
 
-Public catalogue + controlled intake — Next.js Bahasa Indonesia UI (`apps/web`), FastAPI + PostgreSQL backend (`services/backend`), shared OpenAPI types (`packages/contracts`), and a Playwright end-to-end flow (`tests/e2e`). Guest submissions and uploads feed an invite-only moderator queue. An asynchronous screening pipeline (Tavily discovery -> SSRF-hardened fetch -> OpenRouter extraction/comparison -> TypeSafe Jev typed judgments) prepares structured evidence for moderators — it never publishes anything and never emits scam/safe verdicts; only a moderator's approval creates a listing.
+Public catalogue + incoming feed + controlled intake — Next.js Bahasa Indonesia UI (`apps/web`), FastAPI + PostgreSQL backend (`services/backend`), shared OpenAPI types (`packages/contracts`), and a Playwright end-to-end flow (`tests/e2e`). A guest submission immediately gets an AI check (Tavily discovery -> SSRF-hardened fetch -> OpenRouter extraction/comparison -> TypeSafe Jev typed judgments): the receipt-token status endpoint returns the sanitized result as soon as the run completes, and the submission joins the public `GET /api/v1/opportunities/incoming` feed marked `verification: 'ai_checked'` until a moderator decides. The AI never publishes catalogue listings and never emits scam/safe verdicts; only a moderator's approval promotes an item into the catalogue as `verification: 'moderator_verified'`.
 
 ## Prerequisites
 

@@ -6,19 +6,24 @@ scratch against this; nothing here prescribes or assumes any existing UI.
 
 ## Product in one paragraph
 
-A national catalogue of **verified** scholarships, internships, and
-competitions for Indonesian students. Guests submit opportunities (URL and/or
-PDF uploads); an AI pipeline prepares corroboration evidence; **a human
-moderator always makes the publish decision** — the AI never publishes and
-never emits scam/safe verdicts. Public visitors browse only
-moderator-approved listings. Primary audience language is **Bahasa
-Indonesia** (backend already ships Indonesian status labels).
+An instant **AI fact-check** for Indonesian opportunity posts, plus a
+national catalogue of **verified** scholarships, internships, and
+competitions. A guest drops a link or uploads a poster; within seconds the
+AI returns what it found: extracted details (deadline, fees, requested
+documents), whether an official issuer page exists, and which fields match
+it. That instant result is the product's core value. Two public surfaces
+exist: an **incoming feed** of AI-checked submissions awaiting review
+(`verification: 'ai_checked'`) and the **catalogue** of
+moderator-approved listings (`verification: 'moderator_verified'`).
+**A human always makes the publish decision** — the AI never publishes and
+never emits scam/safe verdicts; it reports facts and source matches.
+Primary audience language is **Bahasa Indonesia**.
 
 ## Actors
 
 | Actor | Identity | What they do |
 |---|---|---|
-| Guest | Anonymous; identified only by a one-time **receipt token** | Submit an opportunity, check its status, browse catalogue, file reports |
+| Guest | Anonymous; identified only by a one-time **receipt token** | Submit an opportunity, **see its AI check result immediately**, track status, browse catalogue + incoming feed, file reports |
 | Moderator | Cookie-session account (`role=moderator`), invite-only — no self-registration | Review queue, inspect AI evidence, approve/reject/expire submissions |
 | System | Screening worker + retention sweeper | Extract/discover/compare/judge automatically after intake |
 
@@ -60,7 +65,20 @@ Returns `401` without/with a wrong token, `404` for unknown ref,
 { "ref": "JP-DHD1X8GR", "state": "review_pending",
   "status_label": "Menunggu peninjauan moderator",
   "created_at": "2026-09-26T19:00:00Z",
-  "decision": null, "needs_more_evidence": false }
+  "decision": null, "needs_more_evidence": false,
+  "screening": {
+    "state": "complete", "outcome": "complete",
+    "extracted": { "title": "Beasiswa Unggulan",
+        "issuer": "Kemendikbudristek", "deadline": "2026-11-30",
+        "category": "scholarship", "fees": "gratis",
+        "requested_data": ["CV"] },
+    "field_verdicts": { "deadline": { "verdict": "supported",
+        "quote": "s.d. 30 November 2026" }, "issuer": { "verdict": "…" } },
+    "sources": [{ "url": "https://beasiswaunggulan.kemdikbud.go.id",
+        "status": 200, "official": true }],
+    "ai_source_match": true,
+    "errors": [{ "stage": "discovery", "kind": "unavailable" }],
+    "finished_at": "2026-09-26T19:00:42Z" } }
 ```
 
 `state` lifecycle: `received` → `queued` → `processing` → `review_pending`
@@ -70,10 +88,65 @@ yourself. `needs_more_evidence: true` means a moderator asked for more info
 (submission stays `review_pending`); the API exposes no resubmit channel —
 decide how a guest should act on that (e.g., fresh submission).
 
-Deliberately minimal: no email, no extracted content, no evidence is shown
-to guests — privacy boundary.
+**`screening` is the instant AI result** — the product's core payoff:
 
-### 3. Public catalogue
+- `screening.state` mirrors the run: `queued` → `processing` → `complete` |
+  `failed`. Poll until `complete`/`failed` (seconds-to-a-minute).
+- `extracted` — structured fields the AI read from the guest's own post
+  (deadline, **fees**, **requested_data** — the scam signals users check
+  for). `null` until extracted.
+- `field_verdicts` — per-field comparison vs fetched sources:
+  `supported` | `conflicting` | `not_found` | `unreadable`, with verbatim
+  `quote`. Ideal for a field-by-field compare table.
+- `sources` — fetched candidate pages: `status` + `official` (Jev judged
+  it the issuer's official listing). `official: null` = unjudged.
+- `ai_source_match` — `true` when ≥1 fetched page was judged official with
+  no field conflicts; `false`/`null` otherwise.
+- `outcome` — `complete` | `provider_unavailable` | `manual_review_required`
+  | `no_public_source` | `no_content`. Non-`complete` outcomes are honest
+  degradations — explain, don't hide.
+- `errors` — `stage` + `kind` only (provider internals withheld).
+
+The projection is **deliberately sanitized**: no `submission_text`, no
+evidence body text, no contact email, no context echo, no provider/model
+internals — only the guest's own extracted facts and public web facts.
+**Never render it as a verdict** — the AI found facts and sources; it does
+not say "safe" or "scam".
+
+### 3. Incoming feed — AI-checked, awaiting verification (public)
+
+`GET /api/v1/opportunities/incoming` — anonymous. The live feed of
+submissions that finished AI screening and await moderator review.
+`limit` (1–50, default 20), `offset`; newest first.
+
+```json
+{ "items": [{ "ref": "JP-DHD1X8GR", "created_at": "…",
+    "verification": "ai_checked",
+    "submitted_url": "https://contoh.id/pengumuman",
+    "screening": { "…same projection as the guest status object…" } }],
+  "total": 7 }
+```
+
+`GET /api/v1/opportunities/incoming/{ref}` — same item shape for a detail
+view. `404` for unknown refs **and** for submissions that already left the
+queue (approved/rejected/expired) — the item graduates out of the feed.
+
+Design cautions — these are **unvetted submissions**:
+
+- `verification: 'ai_checked'` is the badge value; pair it with copy like
+  *"Dicek AI — belum diverifikasi moderator"* so users never mistake it
+  for endorsement. When a moderator approves, the same content reappears
+  in the catalogue as `verification: 'moderator_verified'`.
+- `extracted` fields come from the submission itself — a scam post yields
+  scam-flavored fields (fees, KTP requests). That's the honest check
+  result; show it as evidence, not as a warning banner authored by the
+  app.
+- `screening.outcome` may be `no_public_source`/`provider_unavailable`/
+  `no_content` — cards need graceful "check inconclusive" states.
+- Feed rows expose no guest PII, uploads, or context — only the submitted
+  URL plus the sanitized screening projection.
+
+### 4. Public catalogue
 
 `GET /api/v1/opportunities` — anonymous. Query params:
 `category` (`scholarship` | `internship` | `competition`), `q`
@@ -83,8 +156,9 @@ to guests — privacy boundary.
 { "items": [{ "slug": "beasiswa-unggulan-…", "title": "…",
     "category": "scholarship", "issuer_name": "Kemendikbudristek",
     "deadline": "2026-11-30", "checked_at": "…", "verified_at": "…",
-    "trust_basis": "public_source", "status": "published",
-    "source_url": "https://…", "ai_source_match": true }],
+    "trust_basis": "public_source", "verification": "moderator_verified",
+    "status": "published", "source_url": "https://…",
+    "ai_source_match": true }],
   "total": 42 }
 ```
 
@@ -94,6 +168,9 @@ to guests — privacy boundary.
 
 Field semantics that matter for design:
 
+- `verification` — always `'moderator_verified'` on catalogue items (a
+  human approved each one). The paired value `'ai_checked'` appears only on
+  the incoming feed — one badge component can render both tiers.
 - `source_url` — the verified public source; **`null` for
   `trust_basis='issuer_confirmed_private'`** listings (moderator attested
   the issuer privately; nothing public to link). Handle "no link" listings.
@@ -105,7 +182,7 @@ Field semantics that matter for design:
 - `checked_at`/`verified_at` = "last verified" timestamps — candidate
   trust-display material.
 
-### 4. Community report (public)
+### 5. Community report (public)
 
 `POST /api/v1/opportunities/{slug}/reports` — anonymous, `201`, JSON body:
 
@@ -118,7 +195,7 @@ Rate limit 20/hour. Reports are **advisory only** — they never change the
 listing's status or visibility; they surface a badge on the moderator's
 queue row. No feedback loop to the reporter exists.
 
-### 5. Moderator auth
+### 6. Moderator auth
 
 - `POST /api/v1/auth/login` — `application/x-www-form-urlencoded`
   `username` + `password` (OAuth2 form). `204` + `Set-Cookie: jp_auth`
@@ -131,7 +208,7 @@ queue row. No feedback loop to the reporter exists.
 - No self-registration, no password reset UI flow — accounts are created
   server-side by an operator.
 
-### 6. Moderation queue
+### 7. Moderation queue
 
 `GET /api/v1/moderation/submissions?state=&limit=&offset=` — auth required
 (`401`/`403` otherwise). Oldest first.
@@ -146,7 +223,7 @@ queue row. No feedback loop to the reporter exists.
 `state` filter is free-form over the lifecycle states above; `review_pending`
 is the actionable queue.
 
-### 7. Submission detail (the evidence page)
+### 8. Submission detail (the evidence page)
 
 `GET /api/v1/moderation/submissions/{id}` — everything a moderator needs:
 
@@ -216,7 +293,7 @@ PDFs/images inline if desired.
   (with `error`). A `failed`/absent run still allows a decision — the AI is
   advisory.
 
-### 8. Moderator decision
+### 9. Moderator decision
 
 `POST /api/v1/moderation/submissions/{id}/decision`:
 
@@ -245,27 +322,34 @@ opportunity_slug }` — `opportunity_slug` is set only on approval.
 
 ## Constraints that shape the UX
 
-- **Human gate is absolute.** No state lets AI publish; treat AI output as
-  evidence cards, never verdicts. Do not display `ai_source_match` or Jev
-  answers as "safe/scam" language.
+- **Human gate governs the catalogue.** No state lets AI publish a listing;
+  treat AI output as evidence cards, never verdicts. Do not display
+  `ai_source_match` or Jev answers as "safe/scam" language.
+- **The incoming feed is unvetted by design.** `ai_checked` items are raw
+  submissions that finished screening — anyone can get content in via a
+  rate-limited form. The badge/copy must always convey "AI-checked, pending
+  human review", never imply endorsement.
+- **Instant result, asynchronous compute.** Screening takes
+  seconds-to-a-minute after submission; the status page should poll
+  `screening.state` until `complete`/`failed`, then render the projection.
 - **Privacy clock.** Guest PII, uploads, and extracted text delete 30 days
   after intake, or **7 days after any terminal decision**. Status checks
   and moderator views degrade gracefully (`contact_email: null`,
-  `text_purged`).
+  `text_purged`); screening projections survive in sanitized form.
 - **Rate limits** guests will hit: 10 submits/hr, 30 status polls/hr,
   20 reports/hr — surface `429` with retry-later copy.
 - **Receipts are bearer secrets.** `X-Receipt-Token` is the only guest
   credential; lost token = lost submission access. Refs alone are
   enumerable-safe but useless without the token.
-- **Real-time**: screening takes ~seconds-to-a-minute; status page should
-  poll or show "in queue/processing" states.
 - **Reports can't be resolved via API** (no triage endpoint) — they're a
   signal counter on the queue and a list on the detail page only.
 - **No notifications** — no email/SMS/webhook to guests exists; the status
   page is the only feedback channel.
-- **Every listing is human-approved** — `verified_at` is when a moderator
-  approved it; `trust_basis` distinguishes public-source vs
-  privately-confirmed listings.
+- **Two trust tiers everywhere.** `verification: 'ai_checked'` =
+  screened submission awaiting review; `'moderator_verified'` = human-
+  approved catalogue listing. `verified_at` is when a moderator approved
+  it; `trust_basis` distinguishes public-source vs privately-confirmed
+  listings.
 
 ## Language & content notes
 
