@@ -62,8 +62,10 @@ services:
     command: ["uv", "run", "python", "-m", "app.worker"]
     environment:
       <<: *backend-env
+      RENDERER_URL: http://renderer:9000
     volumes:
       - uploads:/data/uploads
+    networks: [default, render]
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,6 +73,32 @@ services:
         condition: service_healthy
       api:
         condition: service_healthy
+      renderer:
+        condition: service_healthy
+    restart: unless-stopped
+  # Headless Chromium for JavaScript-only pages. Lives on its own network
+  # (reachable only by the worker; no route to postgres/redis/api) and
+  # holds no secrets. Every browser request goes through the SSRF-hardened
+  # fetcher; see services/backend/app/services/render.py.
+  renderer:
+    build:
+      context: ..
+      dockerfile: infra/docker/renderer.Dockerfile
+      args:
+        RENDERER_IMAGE: ${RENDERER_IMAGE:-mcr.microsoft.com/playwright/python:v1.62.0-noble@sha256:aa81288e738725378becba5b3e06cb0f3a7f012a610e87e8d767a090ea3f740d}
+    networks: [render]
+    init: true
+    ipc: private
+    shm_size: 512m
+    mem_limit: 1g
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=2)"]
+      interval: 10s
+      retries: 6
     restart: unless-stopped
   sweeper:
     build:
@@ -104,6 +132,10 @@ services:
     depends_on:
       api:
         condition: service_healthy
+
+networks:
+  default:
+  render:
 
 volumes:
   uploads:

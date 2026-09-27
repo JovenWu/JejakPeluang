@@ -53,6 +53,8 @@ class FetchResult:
     content_type: str | None
     content: bytes
     fetched_at: datetime
+    # True when the content is a headless-browser rendering (app.services.render)
+    rendered: bool = False
 
 
 def _default_resolver(host: str, port: int) -> list[str]:

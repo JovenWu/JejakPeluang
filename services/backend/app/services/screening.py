@@ -119,6 +119,8 @@ def _fetch_evidence(fetcher: Fetcher, url: str, *, origin: str) -> dict[str, Any
         'fetched_at': result.fetched_at.isoformat(),
         'text': text,
     }
+    if getattr(result, 'rendered', False):
+        item['rendered'] = True
     if extract_error:
         item['extract_error'] = extract_error
     return item
@@ -383,8 +385,9 @@ def _discover(searcher: Searcher, extraction: dict[str, Any],
 def default_clients() -> tuple:
     """Real clients wired from env; returns (fetcher, searcher, llm, judge)."""
     from app.services.fetch import fetch
+    from app.services.render_client import with_rendering
     from app.services.screening_jev import TypeSafeJudge
     from app.services.screening_openrouter import OpenRouterClient
     from app.services.screening_tavily import TavilySearcher
-    return (fetch, TavilySearcher(), OpenRouterClient(),
+    return (with_rendering(fetch), TavilySearcher(), OpenRouterClient(),
         TypeSafeJudge() if environ.get('TYPESAFE_API_KEY') else None)
