@@ -17,6 +17,7 @@ class SourceCheck(BaseModel):
     url: str
     status: int | None
     official: bool | None
+    error: str | None = None
 
 
 class ScreeningErrorView(BaseModel):

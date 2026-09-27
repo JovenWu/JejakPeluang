@@ -1062,7 +1062,7 @@
         "type": "object"
       },
       "ScreeningView": {
-        "description": "Guest/public-safe projection of a screening run \u2014 extracted fields,\nper-field source verdicts, and the official-source signal. No\nsubmission_text, evidence bodies, or provider internals.",
+        "description": "Guest/public-safe projection of a screening run — extracted fields,\nper-field source verdicts, and the official-source signal. No\nsubmission_text, evidence bodies, or provider internals.",
         "properties": {
           "ai_source_match": {
             "anyOf": [
@@ -1157,6 +1157,17 @@
       "SourceCheck": {
         "description": "One fetched source page and whether Jev judged it the issuer's\nofficial listing. Body text is never exposed publicly.",
         "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
           "official": {
             "anyOf": [
               {
@@ -1952,7 +1963,7 @@
     },
     "/api/v1/opportunities/incoming": {
       "get": {
-        "description": "Public feed of AI-checked submissions awaiting moderator review.\n\nEvery row is an unmoderated submission \u2014 'ai_checked' must never be\npresented as a trust badge; it upgrades to 'moderator_verified' only\nwhen a human approves it into the catalogue.",
+        "description": "Public feed of AI-checked submissions awaiting moderator review.\n\nEvery row is an unmoderated submission — 'ai_checked' must never be\npresented as a trust badge; it upgrades to 'moderator_verified' only\nwhen a human approves it into the catalogue.",
         "operationId": "list_incoming_feed_api_v1_opportunities_incoming_get",
         "parameters": [
           {

@@ -5,7 +5,7 @@ import httpx
 import pytest
 from pypdf import PdfWriter
 
-from app.services.extract import MAX_EXTRACT_CHARS, to_text
+from app.services.extract import MAX_EXTRACT_CHARS, page_text, to_text
 from app.services.fetch import FetchError, FetchResult, fetch
 
 PUBLIC_IP = '93.184.216.34'
@@ -377,3 +377,45 @@ def test_to_text_fallback_strips_script_and_style():
     text = to_text(html, 'text/html')
     assert 'isi utama' in text
     assert 'evil()' not in text
+
+
+SPA_SHELL = (b'<!doctype html><html><head><title>App</title></head>'
+    b'<body><noscript>You need to enable JavaScript to run this app.'
+    b'</noscript><div id="root"></div>'
+    b'<script src="/static/js/main.js"></script></body></html>')
+
+
+def test_to_text_never_returns_noscript_fallback():
+    text = to_text(SPA_SHELL, 'text/html')
+    assert 'JavaScript' not in text
+
+
+def test_page_text_flags_js_shell():
+    # A client-rendered mount page is not evidence — flag it so the LLM is
+    # never fed the noscript fallback string as page content.
+    text, error = page_text(SPA_SHELL, 'text/html')
+    assert text == ''
+    assert error == 'js_required'
+
+
+def test_page_text_reads_server_rendered_html_with_noscript():
+    html = (b'<html><body><noscript>Aktifkan JavaScript.</noscript>'
+        b'<article><h1>Beasiswa Unggulan 2026</h1><p>Pendaftaran dibuka'
+        b' hingga 31 Maret melalui portal resmi kemdikbud.</p>'
+        b'</article></body></html>')
+    text, error = page_text(html, 'text/html')
+    assert error is None
+    assert 'Beasiswa Unggulan' in text
+    assert 'Aktifkan JavaScript' not in text
+
+
+def test_page_text_empty_html_without_shell_markers():
+    text, error = page_text(b'<html><body></body></html>', 'text/html')
+    assert text == ''
+    assert error == 'empty_content'
+
+
+def test_page_text_empty_for_binary_content():
+    text, error = page_text(b'\x89PNG\r\n\x1a\n....', 'image/png')
+    assert text == ''
+    assert error == 'empty_content'

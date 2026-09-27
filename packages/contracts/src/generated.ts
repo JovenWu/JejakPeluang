@@ -4,40 +4,6 @@
  */
 
 export interface paths {
-    "/api/v1/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Auth:Cookie.Login */
-        post: operations["auth_cookie_login_api_v1_auth_login_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Auth:Cookie.Logout */
-        post: operations["auth_cookie_logout_api_v1_auth_logout_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -47,81 +13,6 @@ export interface paths {
         };
         /** Health */
         get: operations["health_api_v1_health_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/moderation/submissions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Submissions */
-        get: operations["list_submissions_api_v1_moderation_submissions_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/moderation/submissions/{submission_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Submission Detail */
-        get: operations["get_submission_detail_api_v1_moderation_submissions__submission_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/moderation/submissions/{submission_id}/decision": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Post Decision */
-        post: operations["post_decision_api_v1_moderation_submissions__submission_id__decision_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/moderation/submissions/{submission_id}/uploads/{upload_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Download Upload
-         * @description Stream a stored upload for moderator review.
-         *
-         *     The upload row is looked up by id and must belong to the submission;
-         *     upload_file_path resolves storage_key under UPLOAD_DIR and refuses any
-         *     path outside it, so no user input ever reaches the filesystem.
-         */
-        get: operations["download_upload_api_v1_moderation_submissions__submission_id__uploads__upload_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -282,6 +173,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/moderation/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Submissions */
+        get: operations["list_submissions_api_v1_moderation_submissions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/moderation/submissions/{submission_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Submission Detail */
+        get: operations["get_submission_detail_api_v1_moderation_submissions__submission_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/moderation/submissions/{submission_id}/uploads/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Upload
+         * @description Stream a stored upload for moderator review.
+         *
+         *     The upload row is looked up by id and must belong to the submission;
+         *     upload_file_path resolves storage_key under UPLOAD_DIR and refuses any
+         *     path outside it, so no user input ever reaches the filesystem.
+         */
+        get: operations["download_upload_api_v1_moderation_submissions__submission_id__uploads__upload_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/moderation/submissions/{submission_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Decision */
+        post: operations["post_decision_api_v1_moderation_submissions__submission_id__decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Auth:Cookie.Login */
+        post: operations["auth_cookie_login_api_v1_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Auth:Cookie.Logout */
+        post: operations["auth_cookie_logout_api_v1_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/me": {
         parameters: {
             query?: never;
@@ -305,15 +305,10 @@ export interface components {
     schemas: {
         /** Body_auth_cookie_login_api_v1_auth_login_post */
         Body_auth_cookie_login_api_v1_auth_login_post: {
-            /** Client Id */
-            client_id?: string | null;
-            /**
-             * Client Secret
-             * Format: password
-             */
-            client_secret?: string | null;
             /** Grant Type */
             grant_type?: string | null;
+            /** Username */
+            username: string;
             /**
              * Password
              * Format: password
@@ -324,47 +319,52 @@ export interface components {
              * @default
              */
             scope: string;
-            /** Username */
-            username: string;
+            /** Client Id */
+            client_id?: string | null;
+            /**
+             * Client Secret
+             * Format: password
+             */
+            client_secret?: string | null;
         };
         /** Body_create_submission_api_v1_submissions_post */
         Body_create_submission_api_v1_submissions_post: {
-            /** Contact Email */
-            contact_email?: string | null;
+            /** Url */
+            url?: string | null;
             /** Context */
             context?: string | null;
+            /** Contact Email */
+            contact_email?: string | null;
             /**
              * Files
              * @default []
              */
             files: string[];
-            /** Url */
-            url?: string | null;
         };
         /**
          * DecisionFields
          * @description Opportunity payload a moderator supplies when approving a submission.
          */
         DecisionFields: {
+            /** Title */
+            title: string;
             /**
              * Category
              * @enum {string}
              */
             category: "scholarship" | "internship" | "competition";
-            /** Deadline */
-            deadline?: string | null;
             /** Description */
             description: string;
             /** Eligibility */
             eligibility: string;
-            /** Issuer Name */
-            issuer_name?: string | null;
             /** Region */
             region?: string | null;
+            /** Deadline */
+            deadline?: string | null;
             /** Slug */
             slug?: string | null;
-            /** Title */
-            title: string;
+            /** Issuer Name */
+            issuer_name?: string | null;
             /**
              * Trust Basis
              * @default public_source
@@ -379,9 +379,9 @@ export interface components {
              * @enum {string}
              */
             decision: "approved" | "needs_more_evidence" | "rejected" | "expire";
-            fields?: components["schemas"]["DecisionFields"] | null;
             /** Reason */
             reason?: string | null;
+            fields?: components["schemas"]["DecisionFields"] | null;
         };
         /** DecisionResult */
         DecisionResult: {
@@ -390,8 +390,6 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            /** Opportunity Slug */
-            opportunity_slug?: string | null;
             /** Status */
             status: string;
             /**
@@ -401,9 +399,20 @@ export interface components {
             submission_id: string;
             /** Submission State */
             submission_state: string;
+            /** Opportunity Slug */
+            opportunity_slug?: string | null;
         };
         /** DecisionView */
         DecisionView: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
+            /** Reason */
+            reason: string | null;
             /**
              * Actor Id
              * Format: uuid
@@ -414,15 +423,6 @@ export interface components {
              * Format: date-time
              */
             decided_at: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Reason */
-            reason: string | null;
-            /** Status */
-            status: string;
         };
         /**
          * DedupeCheck
@@ -435,15 +435,15 @@ export interface components {
             duplicate: boolean;
             /** Kind */
             kind?: ("listing" | "incoming") | null;
+            /** Slug */
+            slug?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Status */
+            status?: string | null;
             /** Ref */
             ref?: string | null;
             screening?: components["schemas"]["ScreeningView"] | null;
-            /** Slug */
-            slug?: string | null;
-            /** Status */
-            status?: string | null;
-            /** Title */
-            title?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -455,21 +455,21 @@ export interface components {
          * @description Public feed row: an AI-checked submission awaiting moderation.
          */
         IncomingItem: {
+            /** Ref */
+            ref: string;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
-            /** Ref */
-            ref: string;
-            screening: components["schemas"]["ScreeningView"] | null;
-            /** Submitted Url */
-            submitted_url: string | null;
             /**
              * Verification
              * @constant
              */
             verification: "ai_checked";
+            /** Submitted Url */
+            submitted_url: string | null;
+            screening: components["schemas"]["ScreeningView"] | null;
         };
         /** IncomingListResponse */
         IncomingListResponse: {
@@ -480,39 +480,29 @@ export interface components {
         };
         /** OpportunityDetail */
         OpportunityDetail: {
-            /** Ai Source Match */
-            ai_source_match?: boolean | null;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
             /**
              * Category
              * @enum {string}
              */
             category: "scholarship" | "internship" | "competition";
+            /** Issuer Name */
+            issuer_name: string;
+            /** Deadline */
+            deadline: string | null;
             /**
              * Checked At
              * Format: date-time
              */
             checked_at: string;
-            /** Deadline */
-            deadline: string | null;
-            /** Description */
-            description: string;
-            /** Eligibility */
-            eligibility: string;
-            /** Issuer Name */
-            issuer_name: string;
-            /** Region */
-            region: string | null;
-            /** Slug */
-            slug: string;
-            /** Source Url */
-            source_url: string | null;
             /**
-             * Status
-             * @enum {string}
+             * Verified At
+             * Format: date-time
              */
-            status: "published" | "expired" | "needs_review";
-            /** Title */
-            title: string;
+            verified_at: string;
             /**
              * Trust Basis
              * @enum {string}
@@ -525,10 +515,20 @@ export interface components {
              */
             verification: "ai_checked" | "moderator_verified";
             /**
-             * Verified At
-             * Format: date-time
+             * Status
+             * @enum {string}
              */
-            verified_at: string;
+            status: "published" | "expired" | "needs_review";
+            /** Source Url */
+            source_url: string | null;
+            /** Ai Source Match */
+            ai_source_match?: boolean | null;
+            /** Description */
+            description: string;
+            /** Eligibility */
+            eligibility: string;
+            /** Region */
+            region: string | null;
         };
         /** OpportunityListResponse */
         OpportunityListResponse: {
@@ -539,33 +539,29 @@ export interface components {
         };
         /** OpportunitySummary */
         OpportunitySummary: {
-            /** Ai Source Match */
-            ai_source_match?: boolean | null;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
             /**
              * Category
              * @enum {string}
              */
             category: "scholarship" | "internship" | "competition";
+            /** Issuer Name */
+            issuer_name: string;
+            /** Deadline */
+            deadline: string | null;
             /**
              * Checked At
              * Format: date-time
              */
             checked_at: string;
-            /** Deadline */
-            deadline: string | null;
-            /** Issuer Name */
-            issuer_name: string;
-            /** Slug */
-            slug: string;
-            /** Source Url */
-            source_url: string | null;
             /**
-             * Status
-             * @enum {string}
+             * Verified At
+             * Format: date-time
              */
-            status: "published" | "expired" | "needs_review";
-            /** Title */
-            title: string;
+            verified_at: string;
             /**
              * Trust Basis
              * @enum {string}
@@ -578,35 +574,39 @@ export interface components {
              */
             verification: "ai_checked" | "moderator_verified";
             /**
-             * Verified At
-             * Format: date-time
+             * Status
+             * @enum {string}
              */
-            verified_at: string;
+            status: "published" | "expired" | "needs_review";
+            /** Source Url */
+            source_url: string | null;
+            /** Ai Source Match */
+            ai_source_match?: boolean | null;
         };
         /** QueueItem */
         QueueItem: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Has Contact Email */
-            has_contact_email: boolean;
             /**
              * Id
              * Format: uuid
              */
             id: string;
-            /** Open Reports Count */
-            open_reports_count: number;
             /** Ref */
             ref: string;
             /** State */
             state: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
             /** Submitted Url Host */
             submitted_url_host: string | null;
             /** Uploads Count */
             uploads_count: number;
+            /** Has Contact Email */
+            has_contact_email: boolean;
+            /** Open Reports Count */
+            open_reports_count: number;
         };
         /** QueueResponse */
         QueueResponse: {
@@ -635,58 +635,58 @@ export interface components {
         };
         /** ReportView */
         ReportView: {
-            /** Category */
-            category: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Description */
-            description: string | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** Category */
+            category: string;
+            /** Description */
+            description: string | null;
             /** Status */
             status: string;
-        };
-        /** ScreeningErrorView */
-        ScreeningErrorView: {
-            /** Kind */
-            kind: string | null;
-            /** Stage */
-            stage: string | null;
-        };
-        /** ScreeningRunMeta */
-        ScreeningRunMeta: {
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ScreeningErrorView */
+        ScreeningErrorView: {
+            /** Stage */
+            stage: string | null;
+            /** Kind */
+            kind: string | null;
+        };
+        /** ScreeningRunMeta */
+        ScreeningRunMeta: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** State */
+            state: string;
+            /** Provider Version */
+            provider_version: string | null;
+            /** Model Version */
+            model_version: string | null;
+            /** Schema Version */
+            schema_version: string | null;
+            /** Result Json */
+            result_json: {
+                [key: string]: unknown;
+            } | null;
             /** Error */
             error: string | null;
             /** Finished At */
             finished_at: string | null;
             /**
-             * Id
-             * Format: uuid
+             * Created At
+             * Format: date-time
              */
-            id: string;
-            /** Model Version */
-            model_version: string | null;
-            /** Provider Version */
-            provider_version: string | null;
-            /** Result Json */
-            result_json: {
-                [key: string]: unknown;
-            } | null;
-            /** Schema Version */
-            schema_version: string | null;
-            /** State */
-            state: string;
+            created_at: string;
         };
         /**
          * ScreeningView
@@ -695,10 +695,10 @@ export interface components {
          *     submission_text, evidence bodies, or provider internals.
          */
         ScreeningView: {
-            /** Ai Source Match */
-            ai_source_match: boolean | null;
-            /** Errors */
-            errors: components["schemas"]["ScreeningErrorView"][];
+            /** State */
+            state: string;
+            /** Outcome */
+            outcome: string | null;
             /** Extracted */
             extracted: {
                 [key: string]: unknown;
@@ -707,14 +707,14 @@ export interface components {
             field_verdicts: {
                 [key: string]: unknown;
             } | null;
-            /** Finished At */
-            finished_at: string | null;
-            /** Outcome */
-            outcome: string | null;
             /** Sources */
             sources: components["schemas"]["SourceCheck"][];
-            /** State */
-            state: string;
+            /** Ai Source Match */
+            ai_source_match: boolean | null;
+            /** Errors */
+            errors: components["schemas"]["ScreeningErrorView"][];
+            /** Finished At */
+            finished_at: string | null;
         };
         /**
          * SourceCheck
@@ -722,19 +722,21 @@ export interface components {
          *     official listing. Body text is never exposed publicly.
          */
         SourceCheck: {
-            /** Official */
-            official: boolean | null;
-            /** Status */
-            status: number | null;
             /** Url */
             url: string;
+            /** Status */
+            status: number | null;
+            /** Official */
+            official: boolean | null;
+            /** Error */
+            error?: string | null;
         };
         /** SubmissionCreated */
         SubmissionCreated: {
-            /** Receipt Token */
-            receipt_token: string;
             /** Ref */
             ref: string;
+            /** Receipt Token */
+            receipt_token: string;
             /** Status */
             status: string;
             /** Status Url */
@@ -745,37 +747,30 @@ export interface components {
          * @description Everything a moderator sees; receipt_token_hash is never included.
          */
         SubmissionDetail: {
-            /** Client Net Hash */
-            client_net_hash: string;
-            /** Contact Email */
-            contact_email: string | null;
-            /** Context */
-            context: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Decisions */
-            decisions: components["schemas"]["DecisionView"][];
             /**
              * Id
              * Format: uuid
              */
             id: string;
-            /** Linked Opportunity Slug */
-            linked_opportunity_slug: string | null;
-            /** Purge After */
-            purge_after: string | null;
             /** Ref */
             ref: string;
-            /** Reports */
-            reports: components["schemas"]["ReportView"][];
-            screening_run: components["schemas"]["ScreeningRunMeta"] | null;
             /** State */
             state: string;
             /** Submitted Url */
             submitted_url: string | null;
+            /** Context */
+            context: string;
+            /** Contact Email */
+            contact_email: string | null;
+            /** Client Net Hash */
+            client_net_hash: string;
+            /** Purge After */
+            purge_after: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
             /**
              * Updated At
              * Format: date-time
@@ -783,9 +778,22 @@ export interface components {
             updated_at: string;
             /** Uploads */
             uploads: components["schemas"]["UploadMeta"][];
+            screening_run: components["schemas"]["ScreeningRunMeta"] | null;
+            /** Decisions */
+            decisions: components["schemas"]["DecisionView"][];
+            /** Linked Opportunity Slug */
+            linked_opportunity_slug: string | null;
+            /** Reports */
+            reports: components["schemas"]["ReportView"][];
         };
         /** SubmissionStatus */
         SubmissionStatus: {
+            /** Ref */
+            ref: string;
+            /** State */
+            state: string;
+            /** Status Label */
+            status_label: string;
             /**
              * Created At
              * Format: date-time
@@ -798,42 +806,36 @@ export interface components {
              * @default false
              */
             needs_more_evidence: boolean;
-            /** Ref */
-            ref: string;
             screening?: components["schemas"]["ScreeningView"] | null;
-            /** State */
-            state: string;
-            /** Status Label */
-            status_label: string;
         };
         /** UploadMeta */
         UploadMeta: {
-            /** Detected Mime */
-            detected_mime: string;
             /**
              * Id
              * Format: uuid
              */
             id: string;
-            /** Page Count */
-            page_count: number | null;
-            /** Size Bytes */
-            size_bytes: number;
             /** Storage Key */
             storage_key: string;
+            /** Detected Mime */
+            detected_mime: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Page Count */
+            page_count: number | null;
         };
         /** UserRead */
         UserRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
             /**
              * Email
              * Format: email
              */
             email: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
             /**
              * Is Active
              * @default true
@@ -854,16 +856,16 @@ export interface components {
         };
         /** ValidationError */
         ValidationError: {
-            /** Context */
-            ctx?: Record<string, never>;
-            /** Input */
-            input?: unknown;
             /** Location */
             loc: (string | number)[];
             /** Message */
             msg: string;
             /** Error Type */
             type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -874,55 +876,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    auth_cookie_login_api_v1_auth_login_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_auth_cookie_login_api_v1_auth_login_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    auth_cookie_logout_api_v1_auth_logout_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     health_api_v1_health_get: {
         parameters: {
             query?: never;
@@ -941,137 +894,6 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
-                };
-            };
-        };
-    };
-    list_submissions_api_v1_moderation_submissions_get: {
-        parameters: {
-            query?: {
-                state?: string | null;
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["QueueResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_submission_detail_api_v1_moderation_submissions__submission_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                submission_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SubmissionDetail"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    post_decision_api_v1_moderation_submissions__submission_id__decision_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                submission_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DecisionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DecisionResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    download_upload_api_v1_moderation_submissions__submission_id__uploads__upload_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                submission_id: string;
-                upload_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1333,6 +1155,186 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    list_submissions_api_v1_moderation_submissions_get: {
+        parameters: {
+            query?: {
+                state?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_submission_detail_api_v1_moderation_submissions__submission_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                submission_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_upload_api_v1_moderation_submissions__submission_id__uploads__upload_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                submission_id: string;
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_decision_api_v1_moderation_submissions__submission_id__decision_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                submission_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    auth_cookie_login_api_v1_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": components["schemas"]["Body_auth_cookie_login_api_v1_auth_login_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    auth_cookie_logout_api_v1_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

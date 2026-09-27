@@ -381,7 +381,8 @@ def _public_sources(result: dict) -> list[dict]:
     return [{'url': item.get('final_url') or item.get('url'),
         'status': item.get('status'),
         'official': official.get(item.get('url'), official.get(
-            item.get('final_url')))}
+            item.get('final_url'))),
+        'error': item.get('extract_error') or item.get('fetch_error')}
         for item in result.get('evidence') or []]
 
 

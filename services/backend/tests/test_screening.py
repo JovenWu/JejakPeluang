@@ -173,6 +173,47 @@ def test_run_url_submission_completes_end_to_end(session):
     assert evidence[0]['final_url'] == 'https://peluang.example.org/info'
 
 
+def test_js_shell_page_marks_source_unreadable(session):
+    # SPA mount pages (React/Vue shells) yield no readable text — the run
+    # must flag them instead of feeding 'enable JavaScript' text to the LLM.
+    shell = FakeFetchResult(final_url='https://peluang.example.org/info',
+        status=200, content_type='text/html',
+        content=(b'<!doctype html><html><body><noscript>You need to enable'
+            b' JavaScript to run this app.</noscript>'
+            b'<div id="root"></div></body></html>'))
+    submission, run = make_submission(session)
+    llm = FakeLLM()
+
+    run_screening(session, run, fetcher=FakeFetcher(
+        {'https://peluang.example.org/info': shell}), llm=llm,
+        judge=FakeJudge())
+
+    result = run.result_json
+    item = result['evidence'][0]
+    assert item['extract_error'] == 'js_required'
+    assert item['text'] == ''
+    assert result['submission_text'] in (None, '')
+    assert llm.extract_calls == 0
+    assert result['outcome'] == 'no_content'
+    assert any(e['kind'] == 'js_required' for e in result['errors'])
+
+
+def test_js_shell_public_projection_marks_source(session):
+    from app.services.submissions import screening_projection
+    shell = FakeFetchResult(final_url='https://peluang.example.org/info',
+        status=200, content_type='text/html',
+        content=b'<html><body><noscript>x</noscript>'
+        b'<div id="root"></div></body></html>')
+    _, run = make_submission(session)
+    run_screening(session, run, fetcher=FakeFetcher(
+        {'https://peluang.example.org/info': shell}), llm=FakeLLM())
+
+    view = screening_projection(run)
+    assert view['sources'][0]['error'] == 'js_required'
+    # the noscript body must not leak anywhere in the public projection
+    assert 'JavaScript' not in str(view)
+
+
 def test_run_discovers_candidates_via_tavily(session):
     submission, run = make_submission(session, url=None,
         context='Beasiswa Unggulan dari Kemendikbud')

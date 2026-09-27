@@ -346,7 +346,7 @@ def test_status_includes_sanitized_screening(client, session):
     assert screening['extracted']['title'] == 'Beasiswa Unggulan'
     assert screening['field_verdicts']['deadline']['verdict'] == 'supported'
     assert screening['sources'] == [{'url': 'https://kemdikbud.go.id/x',
-        'status': 200, 'official': True}]
+        'status': 200, 'official': True, 'error': None}]
     assert screening['ai_source_match'] is True
     assert screening['errors'] == [{'stage': 'discovery',
         'kind': 'unavailable'}]

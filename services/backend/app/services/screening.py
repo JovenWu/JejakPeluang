@@ -73,6 +73,9 @@ def _gather_submission_text(session: Session, submission: Submission,
         evidence.append(item)
         if item.get('text'):
             parts.append(item['text'])
+        elif item.get('extract_error'):
+            errors.append({'stage': 'extract', 'kind': item['extract_error'],
+                'detail': submission.submitted_url})
     uploads = session.scalars(select(Upload).where(
         Upload.submission_id == submission.id).order_by(
         Upload.storage_key)).all()
@@ -105,16 +108,20 @@ def _fetch_evidence(fetcher: Fetcher, url: str, *, origin: str) -> dict[str, Any
     except Exception as exc:
         kind = getattr(exc, 'kind', exc.__class__.__name__)
         return {'url': url, 'origin': origin, 'fetch_error': str(kind)}
-    from app.services.extract import to_text
-    return {
+    from app.services.extract import page_text
+    text, extract_error = page_text(result.content, result.content_type)
+    item = {
         'url': url,
         'origin': origin,
         'final_url': result.final_url,
         'status': result.status,
         'content_type': result.content_type,
         'fetched_at': result.fetched_at.isoformat(),
-        'text': to_text(result.content, result.content_type),
+        'text': text,
     }
+    if extract_error:
+        item['extract_error'] = extract_error
+    return item
 
 
 def _known_issuer_domains(session: Session, extraction: dict[str, Any],
