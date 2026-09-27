@@ -23,6 +23,7 @@ class DecisionFields(BaseModel):
     slug: str | None = Field(None, max_length=160,
         pattern=r'^[a-z0-9]+(-[a-z0-9]+)*$')
     issuer_name: str | None = Field(None, min_length=1, max_length=160)
+    source_url: str | None = Field(None, max_length=2048)
     # 'issuer_confirmed_private': moderator attests issuer identity privately;
     # no public source_url is published. Requires issuer_name.
     trust_basis: TrustBasis = 'public_source'

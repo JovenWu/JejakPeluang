@@ -242,18 +242,19 @@ def _approve(session: Session, *, submission: Submission, moderator: User,
         opportunity = publish_private_confirmed(session, issuer_id=issuer.id,
             decision_id=decision.id, fields=opportunity_fields)
         return decision, opportunity
-    if not submission.submitted_url:
+    source_url = fields.source_url or submission.submitted_url
+    if not source_url:
         raise ModerationError(422,
-            'Approval requires a submitted url as public source')
-    url = validate_url(submission.submitted_url)
+            'Approval requires a public source url')
+    url = validate_url(source_url)
     if url is None:
-        raise ModerationError(422, 'Submitted url is not usable as source')
+        raise ModerationError(422, 'Public source url is not usable')
     host = urlsplit(url).hostname
     issuer, domain = _resolve_issuer(session, host=host,
         issuer_name=fields.issuer_name)
     if domain is not None and domain.issuer_id != issuer.id:
         raise ModerationError(409,
-            'Submitted domain is already attributed to a different issuer')
+            'Public source domain is already attributed to a different issuer')
     if domain is None:
         domain = IssuerDomain(issuer_id=issuer.id, domain=host,
             verified_at=now, verification_method='moderator_confirmed')

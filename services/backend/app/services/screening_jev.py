@@ -29,6 +29,18 @@ QUESTION_SPECS: dict[str, dict[str, Any]] = {
                 'does not announce this opportunity',
         },
     },
+    'issuer_website': {
+        'type': 'noul',
+        'instructions': 'Does the fetched page appear to be on a website '
+            'operated by the named issuing organisation, rather than a '
+            'social profile, repost, or third-party directory?',
+        'criteria': {
+            'true': 'The host is a supplied moderator-confirmed issuer domain '
+                'or the page has direct evidence tying its site to the issuer',
+            'false': 'The page is on a social platform or third-party site, '
+                'or the host and page do not tie it to the issuer',
+        },
+    },
     'deadline_corroborated': {
         'type': 'noul',
         'instructions': 'Does the fetched page state the same application '

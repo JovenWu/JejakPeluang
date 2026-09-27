@@ -24,9 +24,14 @@ const BUTTON_CLASS: Record<Action, string> = {
   expire: 'btn-primary',
 }
 
+interface SourceCandidate {
+  url: string
+  label: string
+}
+
 interface Props {
   submissionId: string
-  hasUrl: boolean
+  sourceCandidates: SourceCandidate[]
   extracted: Extracted | null
 }
 
@@ -40,7 +45,7 @@ function slugify(value: string): string {
     .slice(0, 160)
 }
 
-export function DecisionPanel({ submissionId, hasUrl, extracted }: Props): ReactNode {
+export function DecisionPanel({ submissionId, sourceCandidates, extracted }: Props): ReactNode {
   const router = useRouter()
   const [action, setAction] = useState<Action | null>(null)
   const [reason, setReason] = useState('')
@@ -50,10 +55,11 @@ export function DecisionPanel({ submissionId, hasUrl, extracted }: Props): React
     issuer_name: extracted?.issuer ?? '',
     deadline: extracted?.deadline && /^\d{4}-\d{2}-\d{2}$/.test(extracted.deadline) ? extracted.deadline : '',
     region: extracted?.region ?? '',
-    description: '',
+    description: extracted?.description ?? '',
     eligibility: extracted?.eligibility ?? '',
+    source_url: sourceCandidates[0]?.url ?? '',
     slug: '',
-    trust_basis: (hasUrl ? 'public_source' : 'issuer_confirmed_private') as DecisionFields['trust_basis'],
+    trust_basis: (sourceCandidates.length > 0 ? 'public_source' : 'issuer_confirmed_private') as DecisionFields['trust_basis'],
   })
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -87,6 +93,7 @@ export function DecisionPanel({ submissionId, hasUrl, extracted }: Props): React
         deadline: fields.deadline || null,
         slug: fields.slug.trim() || null,
         issuer_name: fields.issuer_name.trim() || null,
+        source_url: fields.trust_basis === 'public_source' ? fields.source_url.trim() || null : null,
         trust_basis: fields.trust_basis,
       }
     }
@@ -133,7 +140,7 @@ export function DecisionPanel({ submissionId, hasUrl, extracted }: Props): React
   }
 
   const approving = action === 'approved'
-  const approveBlocked = approving && fields.trust_basis === 'public_source' && !hasUrl
+  const approveBlocked = approving && fields.trust_basis === 'public_source' && !fields.source_url.trim()
 
   return (
     <form onSubmit={submit} className="space-y-5">
@@ -188,14 +195,38 @@ export function DecisionPanel({ submissionId, hasUrl, extracted }: Props): React
                   <span>
                     <span className="block font-semibold">{basis === 'public_source' ? 'Sumber publik' : 'Konfirmasi privat'}</span>
                     <span className="block text-xs text-ink-2">
-                      {basis === 'public_source' ? 'URL kiriman jadi tautan sumber.' : 'Penerbit mengonfirmasi; tanpa URL.'}
+                      {basis === 'public_source' ? 'Pilih halaman sumber yang sudah diperiksa.' : 'Penerbit mengonfirmasi; tanpa URL.'}
                     </span>
                   </span>
                 </label>
               ))}
             </div>
+            {fields.trust_basis === 'public_source' ? (
+              <div className="mt-3">
+                <label htmlFor="f-source" className="mb-1.5 block text-sm font-semibold">
+                  URL sumber katalog
+                </label>
+                <input
+                  id="f-source"
+                  type="url"
+                  list={`source-candidates-${submissionId}`}
+                  className="field font-mono text-xs"
+                  value={fields.source_url}
+                  onChange={(event) => set('source_url', event.target.value)}
+                  placeholder="https://situs-penerbit.id/peluang"
+                />
+                <datalist id={`source-candidates-${submissionId}`}>
+                  {sourceCandidates.map((candidate) => (
+                    <option key={candidate.url} value={candidate.url} label={candidate.label} />
+                  ))}
+                </datalist>
+                <p className="mt-1 text-xs text-ink-3">
+                  Pilih kandidat situs atau masukkan URL publik yang sudah diperiksa. Tautan QR tercatat terpisah sebagai petunjuk.
+                </p>
+              </div>
+            ) : null}
             {approveBlocked ? (
-              <p className="mt-2 text-xs font-medium text-bad">Kiriman ini tidak punya URL. Gunakan konfirmasi privat.</p>
+              <p className="mt-2 text-xs font-medium text-bad">Pilih atau masukkan URL sumber yang sudah diperiksa, atau gunakan konfirmasi privat.</p>
             ) : null}
           </div>
 

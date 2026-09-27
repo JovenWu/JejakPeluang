@@ -13,12 +13,25 @@ export interface Extracted {
   deadline: string | null
   category: string | null
   region: string | null
+  description: string | null
   eligibility: string | null
   fees: string | null
   requested_data: string[]
+  application_url: string | null
+  source_hint: string | null
 }
 
-export const COMPARED_FIELDS = ['title', 'issuer', 'deadline', 'category', 'region', 'eligibility'] as const
+export const COMPARED_FIELDS = [
+  'title',
+  'issuer',
+  'deadline',
+  'category',
+  'region',
+  'description',
+  'eligibility',
+  'fees',
+  'requested_data',
+] as const
 export type ComparedField = (typeof COMPARED_FIELDS)[number]
 
 export const FIELD_LABEL: Record<ComparedField, string> = {
@@ -27,7 +40,10 @@ export const FIELD_LABEL: Record<ComparedField, string> = {
   deadline: 'Batas akhir',
   category: 'Jenis',
   region: 'Wilayah',
+  description: 'Deskripsi',
   eligibility: 'Syarat',
+  fees: 'Biaya',
+  requested_data: 'Data diminta',
 }
 
 export const VERDICT_LABEL: Record<Verdict, string> = {
@@ -46,15 +62,15 @@ export const EXTRACTED_CATEGORY_LABEL: Record<string, string> = {
 export const OUTCOME_COPY: Record<string, { title: string; body: string }> = {
   complete: {
     title: 'Pemeriksaan selesai',
-    body: 'AI membaca kiriman, mencari halaman sumber di web, lalu membandingkannya per data.',
+    body: 'AI membaca kiriman, mencari situs dan halaman penerbit, memeriksa tautan QR yang terbaca, lalu membandingkan data per kolom.',
   },
   no_public_source: {
-    title: 'Tidak ada sumber publik yang bisa dibandingkan',
-    body: 'AI sudah membaca kiriman, tetapi tidak menemukan halaman web penerbit untuk dicocokkan. Ini belum tentu berarti palsu, karena banyak pengumuman hanya beredar lewat poster atau grup.',
+    title: 'Belum ada sumber publik yang bisa dibandingkan',
+    body: 'AI sudah membaca kiriman dan mencari halaman penerbit, tetapi belum menemukan sumber web yang dapat dicocokkan. Pengumuman juga dapat beredar lewat poster atau kanal sosial.',
   },
   no_content: {
     title: 'Isi kiriman tidak bisa dibaca',
-    body: 'Halaman atau berkas tidak memuat teks yang bisa dibaca AI (misalnya halaman yang butuh JavaScript, atau gambar tanpa teks). Coba kirim tangkapan layar atau PDF pengumumannya.',
+    body: 'Halaman atau berkas tidak memuat teks atau tautan QR yang dapat dibaca AI. Coba kirim tangkapan layar atau PDF pengumumannya.',
   },
   provider_unavailable: {
     title: 'Layanan pemeriksa sedang tidak tersedia',
@@ -74,9 +90,17 @@ export const SOURCE_ERROR_LABEL: Record<string, string> = {
   http_error: 'galat HTTP',
   too_large: 'terlalu besar',
   too_many_redirects: 'terlalu banyak pengalihan',
+  render_timeout: 'waktu render habis',
+  render_failed: 'halaman tidak berhasil dirender',
   dns_blocked: 'domain tak dikenal',
   forbidden_host: 'alamat diblokir',
   invalid_url: 'URL tidak valid',
+  image_too_large: 'resolusi gambar terlalu besar',
+  media_too_large: 'berkas media terlalu besar',
+  unreadable_image: 'gambar tidak terbaca',
+  ocr_unavailable: 'OCR gambar tidak tersedia',
+  ocr_timeout: 'waktu baca gambar habis',
+  ocr_failed: 'teks gambar gagal dibaca',
 }
 
 export const ERROR_KIND_LABEL: Record<string, string> = {
@@ -95,6 +119,7 @@ export const ERROR_KIND_LABEL: Record<string, string> = {
 export const ERROR_STAGE_LABEL: Record<string, string> = {
   fetch: 'mengambil halaman',
   extract: 'membaca kiriman',
+  qr_scan: 'memindai tautan QR',
   discover: 'mencari sumber',
   discovery: 'mencari sumber',
   compare: 'membandingkan',
@@ -119,9 +144,12 @@ export function readExtracted(screening: ScreeningView | null | undefined): Extr
     deadline: asString(raw.deadline),
     category: asString(raw.category),
     region: asString(raw.region),
+    description: asString(raw.description),
     eligibility: asString(raw.eligibility),
     fees: asString(raw.fees),
     requested_data: requested,
+    application_url: asString(raw.application_url),
+    source_hint: asString(raw.source_hint),
   }
 }
 
@@ -138,6 +166,30 @@ export function readVerdicts(screening: ScreeningView | null | undefined): Parti
     }
   }
   return result
+}
+
+export const CONFIDENCE_LABEL: Record<NonNullable<ScreeningView['confidence']>['label'], string> = {
+  strong: 'Kuat',
+  moderate: 'Sedang',
+  limited: 'Terbatas',
+  insufficient: 'Belum cukup bukti',
+}
+
+export function siteAssessmentCopy(status: string | null | undefined): string {
+  switch (status) {
+    case 'issuer_website_found':
+      return 'AI menemukan kandidat situs penerbit. Domain ini tetap perlu diperiksa moderator.'
+    case 'social_only':
+      return 'Pencarian belum menemukan situs penerbit; sejauh ini hanya kanal sosial terdeteksi.'
+    case 'social_and_third_party':
+      return 'Kanal sosial dan sumber pihak ketiga ditemukan; situs penerbit belum teridentifikasi.'
+    case 'third_party_only':
+      return 'Sumber pihak ketiga ditemukan; situs penerbit belum teridentifikasi.'
+    case 'no_source_found':
+      return 'Pencarian tidak menemukan sumber publik yang dapat diperiksa.'
+    default:
+      return 'AI belum dapat menyimpulkan situs penerbit atau akun sosial.'
+  }
 }
 
 export function isScreeningDone(screening: ScreeningView | null | undefined): boolean {
@@ -220,8 +272,8 @@ export function headlineText(summary: Summary, screening: ScreeningView | null |
     case 'conflict':
       return `${summary.conflicting} data berbeda dari sumber`
     case 'match':
-      return 'Ditemukan halaman resmi penerbit, data selaras'
+      return 'Pengumuman penerbit selaras'
     case 'no_official':
-      return 'Belum ditemukan halaman resmi penerbit'
+      return 'Belum ditemukan pengumuman penerbit'
   }
 }

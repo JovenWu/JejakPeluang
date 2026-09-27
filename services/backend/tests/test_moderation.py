@@ -451,6 +451,25 @@ def test_approve_publishes_opportunity_end_to_end(client, session, moderator):
     assert public.json()['issuer_name'] == 'Universitas Contoh'
 
 
+def test_approve_uses_moderator_selected_site_instead_of_social_submission(
+        client, session, moderator):
+    submission = make_submission(session,
+        url='https://instagram.com/p/announcement')
+    response = decide(client, submission.id, approve_fields(
+        issuer_name='Universitas Contoh',
+        source_url='https://beasiswa.example.edu/program'))
+
+    assert response.status_code == 200
+    item = session.scalar(select(Opportunity).where(
+        Opportunity.slug == response.json()['opportunity_slug']))
+    assert item.source_url == 'https://beasiswa.example.edu/program'
+    domain = session.scalar(select(IssuerDomain).where(
+        IssuerDomain.id == item.issuer_domain_id))
+    assert domain.domain == 'beasiswa.example.edu'
+    evidence = session.get(SourceEvidence, item.source_evidence_id)
+    assert evidence.url == 'https://beasiswa.example.edu/program'
+
+
 def test_approve_derives_issuer_from_domain(client, session, moderator):
     submission = make_submission(session,
         url='https://beasiswa.kampus.ac.id/info')

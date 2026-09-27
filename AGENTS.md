@@ -39,5 +39,17 @@ $J --network host -e API_INTERNAL_ORIGIN=http://127.0.0.1:8000 -w /w/apps/web no
   browser direct network access or put it on the default network.
 - Rebuild after touching fetch/render code: `docker compose ... up -d --build renderer worker`
   (export `NODE_IMAGE` first; see above).
-- Judged/production web server: container `jp-web`, `next start` bound to the Tailscale IP
-  `100.125.32.82:3001`. After frontend changes: `next build` (see above) then `docker restart jp-web`.
+- Judged/production web server: container `jp-web`, image `jejakpeluang-web-tailnet:latest`, host network,
+  bound to the Tailscale IP `100.125.32.82:3001`, with `API_INTERNAL_ORIGIN=http://127.0.0.1:8000`.
+  Next.js stores rewrites in the build manifest, so pass that API origin as a build arg for the host-network
+  image; a runtime env override alone is insufficient. It has no source bind, so frontend changes require
+  rebuilding the Tailscale image and recreating `jp-web`; do not start the compose `web` service on port 3000.
+
+## Screening enrichment
+
+- `app/services/media.py` handles local OCR and QR decoding for images, PDFs, and page preview images.
+  Every decoded web URL must still be fetched through the injected SSRF-hardened fetcher.
+- `app/services/screening_assessment.py` produces the evidence-support index and separates website,
+  social-channel, third-party, and unclassified signals. The score is not an authenticity probability or verdict.
+- Public-source approval uses the moderator-selected `DecisionFields.source_url`. AI and QR candidates are
+  suggestions only; they never publish or become trusted domains without moderator approval.

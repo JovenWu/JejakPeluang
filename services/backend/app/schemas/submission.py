@@ -18,11 +18,31 @@ class SourceCheck(BaseModel):
     status: int | None
     official: bool | None
     error: str | None = None
+    origin: str | None = None
 
 
 class ScreeningErrorView(BaseModel):
     stage: str | None
     kind: str | None
+
+
+class EvidenceConfidenceView(BaseModel):
+    score: int | None
+    label: Literal['strong', 'moderate', 'limited', 'insufficient']
+    fields_available: int
+    fields_checked: int
+    fields_supported: int
+    source_level: str
+    method: str
+
+
+class SiteAssessmentView(BaseModel):
+    status: str
+    issuer_website_candidates: int
+    social_sources: int
+    third_party_sources: int
+    unclassified_sources: int
+    qr_codes_found: int
 
 
 class ScreeningView(BaseModel):
@@ -35,6 +55,8 @@ class ScreeningView(BaseModel):
     field_verdicts: dict[str, Any] | None
     sources: list[SourceCheck]
     ai_source_match: bool | None
+    confidence: EvidenceConfidenceView | None = None
+    site_assessment: SiteAssessmentView | None = None
     errors: list[ScreeningErrorView]
     finished_at: datetime | None
 

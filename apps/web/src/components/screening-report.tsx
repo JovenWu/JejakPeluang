@@ -18,6 +18,7 @@ import {
   summarize,
 } from '@/lib/screening'
 
+import { AiEvidenceSummary } from './ai-evidence-summary'
 import { HEADLINE_TONE, Tag, VerdictTag } from './tags'
 
 interface Props {
@@ -26,7 +27,10 @@ interface Props {
 
 function extractedValue(extracted: Extracted | null, field: ComparedField): string | null {
   const value = extracted?.[field] ?? null
-  if (!value) {
+  if (Array.isArray(value)) {
+    return value.length > 0 ? value.join(', ') : null
+  }
+  if (typeof value !== 'string' || !value) {
     return null
   }
   if (field === 'deadline' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -37,6 +41,18 @@ function extractedValue(extracted: Extracted | null, field: ComparedField): stri
   }
   return value
 }
+
+const DRAFT_FIELDS: ComparedField[] = [
+  'title',
+  'issuer',
+  'category',
+  'deadline',
+  'region',
+  'description',
+  'eligibility',
+  'fees',
+  'requested_data',
+]
 
 const HEADLINE_BAR: Record<string, string> = {
   ok: 'border-ok',
@@ -52,7 +68,7 @@ export function ScreeningReport({ screening }: Props): ReactNode {
   const verdicts = readVerdicts(screening)
   const tone = HEADLINE_TONE[summary.headline]
   const degraded = degradedCopy(screening)
-  const hasSignals = Boolean(extracted?.fees) || (extracted?.requested_data.length ?? 0) > 0
+  const hasCatalogDraft = extracted !== null && DRAFT_FIELDS.some((field) => extractedValue(extracted, field) !== null)
   const rows = COMPARED_FIELDS.filter((field) => verdicts[field] || extractedValue(extracted, field))
 
   return (
@@ -65,10 +81,10 @@ export function ScreeningReport({ screening }: Props): ReactNode {
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-2">
           {summary.headline === 'degraded' || summary.headline === 'failed'
             ? degraded.body
-            : `${summary.supported} dari ${summary.compared} data yang dibandingkan cocok dengan sumber web${
+            : `${summary.supported} dari ${summary.compared} data yang dibandingkan cocok dengan sumber web.${
                 summary.officialSources > 0
-                  ? `, dan ${summary.officialSources} halaman dinilai sebagai halaman resmi penerbit.`
-                  : '. Tidak ada halaman yang dinilai sebagai halaman resmi penerbit.'
+                  ? ` AI menilai ${summary.officialSources} halaman sebagai pengumuman penerbit.`
+                  : ' Belum ada halaman yang dinilai AI sebagai pengumuman penerbit.'
               }`}
         </p>
         {screening.finished_at ? (
@@ -76,36 +92,28 @@ export function ScreeningReport({ screening }: Props): ReactNode {
         ) : null}
       </section>
 
-      {hasSignals ? (
-        <section aria-labelledby="tertulis">
-          <h3 id="tertulis" className="kicker mb-3">
-            Tertulis di kiriman
-          </h3>
-          <dl className="grid gap-px overflow-hidden rounded-[3px] border border-rule bg-rule sm:grid-cols-2">
-            <div className="bg-surface p-4">
-              <dt className="text-xs font-semibold text-ink-3">Biaya yang disebut</dt>
-              <dd className="mt-1 text-lg font-semibold">{extracted?.fees ?? <span className="text-ink-3">Tidak disebut</span>}</dd>
-            </div>
-            <div className="bg-surface p-4">
-              <dt className="text-xs font-semibold text-ink-3">Data pribadi yang diminta</dt>
-              <dd className="mt-1.5">
-                {extracted && extracted.requested_data.length > 0 ? (
-                  <ul className="flex flex-wrap gap-1.5">
-                    {extracted.requested_data.map((item) => (
-                      <li key={item} className="rounded-[2px] border border-rule-2 px-2 py-0.5 text-sm">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <span className="text-ink-3">Tidak disebut</span>
-                )}
-              </dd>
-            </div>
-          </dl>
-          <p className="mt-2 text-xs text-ink-3">
-            Dikutip dari kiriman itu sendiri. Pastikan di halaman resmi penerbit sebelum membayar atau mengirim dokumen.
+      <AiEvidenceSummary screening={screening} />
+
+      {hasCatalogDraft ? (
+        <section aria-labelledby="draf-katalog">
+          <h3 id="draf-katalog" className="kicker mb-1">Draf entri katalog dari AI</h3>
+          <p className="mb-3 text-sm text-ink-3">
+            Dirangkum dari teks kiriman, OCR gambar atau PDF, dan tujuan QR yang terbaca. Kolom kosong berarti belum ditemukan.
           </p>
+          <dl className="grid gap-px overflow-hidden rounded-[3px] border border-rule bg-rule sm:grid-cols-2">
+            {DRAFT_FIELDS.map((field) => {
+              const value = extractedValue(extracted, field)
+              const wide = field === 'region' || field === 'description' || field === 'eligibility'
+              return (
+                <div key={field} className={`min-w-0 bg-surface p-4 ${wide ? 'sm:col-span-2' : ''}`}>
+                  <dt className="kicker mb-1">{FIELD_LABEL[field]}</dt>
+                  <dd className="text-sm leading-relaxed">
+                    {value ?? <span className="text-ink-3">Belum terbaca</span>}
+                  </dd>
+                </div>
+              )
+            })}
+          </dl>
         </section>
       ) : null}
 
@@ -171,11 +179,12 @@ export function ScreeningReport({ screening }: Props): ReactNode {
                   {displayUrl(source.url)}
                 </a>
                 <span className="flex flex-wrap items-center gap-2 pl-9 sm:pl-0">
+                  {source.origin === 'qr_code' ? <Tag tone="stamp">Tautan dari QR</Tag> : null}
                   {source.error ? (
                     <Tag tone="warn">{SOURCE_ERROR_LABEL[source.error] ?? source.error}</Tag>
                   ) : null}
-                  {source.official === true ? <Tag tone="ok">Dinilai halaman resmi</Tag> : null}
-                  {source.official === false ? <Tag tone="mute">Bukan halaman resmi</Tag> : null}
+                  {source.official === true ? <Tag tone="ok">Kandidat pengumuman penerbit</Tag> : null}
+                  {source.official === false ? <Tag tone="mute">Bukan pengumuman penerbit</Tag> : null}
                   {source.official === null && !source.error ? <Tag tone="mute">Belum dinilai</Tag> : null}
                 </span>
               </li>

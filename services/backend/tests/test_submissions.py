@@ -346,7 +346,7 @@ def test_status_includes_sanitized_screening(client, session):
     assert screening['extracted']['title'] == 'Beasiswa Unggulan'
     assert screening['field_verdicts']['deadline']['verdict'] == 'supported'
     assert screening['sources'] == [{'url': 'https://kemdikbud.go.id/x',
-        'status': 200, 'official': True, 'error': None}]
+        'status': 200, 'official': True, 'error': None, 'origin': 'tavily'}]
     assert screening['ai_source_match'] is True
     assert screening['errors'] == [{'stage': 'discovery',
         'kind': 'unavailable'}]
@@ -356,6 +356,48 @@ def test_status_includes_sanitized_screening(client, session):
             'INTERNAL-PROVIDER-DETAIL', 'INTERNAL',
             'provider_version', 'submission_text', 'judgments'):
         assert secret not in raw
+
+
+def test_status_screening_exposes_score_and_redacts_qr_urls(client, session):
+    submission, token = make_submission(session)
+    submission.state = 'review_pending'
+    result = {
+        **SCREENING_RESULT,
+        'extraction': {**SCREENING_RESULT['extraction'],
+            'description': 'Program beasiswa.',
+            'application_url': 'https://forms.example.org/app?token=secret',
+            'source_hint': 'https://example.org/source?key=secret'},
+        'evidence': [*SCREENING_RESULT['evidence'], {
+            'url': 'https://forms.example.org/app?token=secret',
+            'final_url': 'https://forms.example.org/app?token=secret',
+            'origin': 'qr_code', 'status': 200, 'text': 'private body'}],
+        'confidence': {'score': 83, 'label': 'strong',
+            'fields_available': 6, 'fields_checked': 6,
+            'fields_supported': 5, 'source_level': 'issuer_website_found',
+            'method': 'evidence-support-v1'},
+        'site_assessment': {
+            'status': 'issuer_website_found',
+            'issuer_websites': [{'url': 'https://example.org/source'}],
+            'social_sources': [{'url': 'https://instagram.com/p/123'}],
+            'third_party_sources': [], 'qr_codes_found': 1},
+    }
+    make_run(session, submission, result=result)
+
+    response = client.get(f'/api/v1/submissions/{submission.ref}',
+        headers={'X-Receipt-Token': token})
+    screening = response.json()['screening']
+
+    assert screening['confidence']['score'] == 83
+    assert screening['site_assessment'] == {
+        'status': 'issuer_website_found', 'issuer_website_candidates': 1,
+        'social_sources': 1, 'third_party_sources': 0,
+        'unclassified_sources': 0, 'qr_codes_found': 1}
+    assert screening['extracted']['description'] == 'Program beasiswa.'
+    assert 'application_url' not in screening['extracted']
+    assert screening['sources'][-1]['url'] == 'https://forms.example.org/app'
+    assert 'token=secret' not in response.text
+    assert 'key=secret' not in response.text
+    assert 'private body' not in response.text
 
 
 def test_status_screening_while_processing(client, session):

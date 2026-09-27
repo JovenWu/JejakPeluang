@@ -63,14 +63,15 @@ class FakeLLM:
         self.extraction = extraction or {
             'title': 'Beasiswa Unggulan 2026', 'issuer': 'Kemendikbud',
             'deadline': '2026-12-31', 'category': 'scholarship',
-            'region': 'Indonesia', 'eligibility': 'S1 semester 4',
-            'fees': None, 'requested_data': ['CV'],
+            'region': 'Indonesia', 'description': 'Beasiswa untuk mahasiswa.',
+            'eligibility': 'S1 semester 4', 'fees': None,
+            'requested_data': ['CV'], 'application_url': None,
             'source_hint': None}
         self.comparison = comparison or {
             'field_verdicts': {field: {'verdict': 'supported',
                 'quote': 'q'} for field in
                 ('title', 'issuer', 'deadline', 'category', 'region',
-                    'eligibility')},
+                    'description', 'eligibility', 'fees', 'requested_data')},
             'notes': None}
         self.extract_error = extract_error
         self.compare_error = compare_error
@@ -96,6 +97,7 @@ class FakeJudge:
             'doc_kind': {'type': 'choice', 'choice': 'official_listing',
                 'probabilities': {'official_listing': 0.9}, 'confidence': 0.9},
             'official_announcement': {'type': 'noul', 'noul': 0.92},
+            'issuer_website': {'type': 'noul', 'noul': 0.92},
             'content_match': {'type': 'noul', 'noul': 0.88},
             'deadline_ok': {'type': 'noul', 'noul': 0.8},
             'eligibility_ok': {'type': 'noul', 'noul': 0.75}}
@@ -167,7 +169,7 @@ def test_run_url_submission_completes_end_to_end(session):
     assert run.finished_at is not None
     assert 'test-model' in run.model_version
     assert 'jev-test-1.0' in run.model_version
-    assert run.schema_version == '1'
+    assert run.schema_version == '2'
     evidence = result['evidence']
     assert evidence[0]['origin'] == 'submitted_url'
     assert evidence[0]['final_url'] == 'https://peluang.example.org/info'
@@ -382,9 +384,34 @@ def test_known_issuer_domains_narrow_the_search(session, verified_issuer):
     fetcher = FakeFetcher({'https://example.org/beasiswa': ok_page(
         'https://example.org/beasiswa')})
     searcher = FakeSearcher(results=[])
+    llm = FakeLLM()
+    llm.extraction['issuer'] = 'Example University'
     run_screening(session, run, fetcher=fetcher, searcher=searcher,
-        llm=FakeLLM(), judge=FakeJudge())
+        llm=llm, judge=FakeJudge())
     assert searcher.calls[0]['include_domains'] == ['example.org']
+
+
+def test_discovery_searches_the_issuer_website_separately():
+    from app.services.screening import _discover
+
+    class Searcher:
+        def __init__(self):
+            self.calls = []
+
+        def search(self, title, issuer, *, include_domains=None):
+            self.calls.append((title, issuer, include_domains))
+            if title == 'situs resmi':
+                return [{'url': 'https://penerbit.example.org',
+                    'title': 'Situs penerbit'}]
+            return []
+
+    searcher = Searcher()
+    result = _discover(searcher, {'title': 'Beasiswa X', 'issuer': 'Penerbit X'},
+        [], [])
+
+    assert len(searcher.calls) == 2
+    assert result['results'][0]['purpose'] == 'issuer_website'
+    assert result['results'][0]['url'] == 'https://penerbit.example.org'
 
 
 def test_tavily_error_marks_discovery_unavailable_but_completes(session):
@@ -396,3 +423,66 @@ def test_tavily_error_marks_discovery_unavailable_but_completes(session):
     result = run.result_json
     assert result['discovery']['status'] == 'provider_unavailable'
     assert run.state == 'complete'
+
+
+def test_qr_destination_is_fetched_and_used_for_the_catalogue_draft(
+        session, upload_dir):
+    import qrcode
+    url = 'https://kemdikbud.go.id/pendaftaran'
+    image = qrcode.make(url)
+    buffer = io.BytesIO()
+    image.save(buffer, format='PNG')
+    upload_dir.mkdir(parents=True)
+    storage_key = 'qr-poster.png'
+    (upload_dir / storage_key).write_bytes(buffer.getvalue())
+    submission, run = make_submission(session, url=None)
+    session.add(Upload(submission_id=submission.id, storage_key=storage_key,
+        detected_mime='image/png', size_bytes=buffer.tell(), page_count=None,
+        sha256='z' * 64, delete_after=NOW))
+    session.commit()
+    fetcher = FakeFetcher({url: ok_page(url,
+        b'Beasiswa Unggulan 2026. Pendaftaran sampai 30 November.')})
+
+    run_screening(session, run, fetcher=fetcher,
+        searcher=FakeSearcher(results=[]), llm=FakeLLM(), judge=FakeJudge())
+
+    result = run.result_json
+    assert url in fetcher.calls
+    assert result['qr_codes'][0]['url'] == url
+    assert result['evidence'][0]['origin'] == 'qr_code'
+    assert result['extraction_origin'] == 'qr_destination'
+    assert result['site_assessment']['status'] == 'issuer_website_found'
+    assert result['confidence']['score'] == 92
+
+
+def test_social_preview_image_qr_is_fetched_through_the_screening_fetcher(session):
+    import qrcode
+
+    social_url = 'https://instagram.com/p/announcement'
+    image_url = 'https://cdn.instagram.example/poster.png'
+    qr_url = 'https://penerbit.example.org/pendaftaran'
+    image = qrcode.make(qr_url)
+    buffer = io.BytesIO()
+    image.save(buffer, format='PNG')
+    social_page = FakeFetchResult(final_url=social_url, status=200,
+        content_type='text/html', content=(
+            b'<html><body><article><h1>Beasiswa Unggulan 2026</h1>'
+            b'<p>Kemendikbud membuka pendaftaran beasiswa.</p></article>'
+            b'<meta property="og:image" content="'
+            + image_url.encode() + b'"></body></html>'))
+    image_page = FakeFetchResult(final_url=image_url, status=200,
+        content_type='image/png', content=buffer.getvalue())
+    qr_page = ok_page(qr_url, b'Pendaftaran Beasiswa Unggulan Kemendikbud')
+    fetcher = FakeFetcher({social_url: social_page, image_url: image_page,
+        qr_url: qr_page})
+    submission, run = make_submission(session, url=social_url)
+
+    run_screening(session, run, fetcher=fetcher,
+        searcher=FakeSearcher(results=[]), llm=FakeLLM(), judge=FakeJudge())
+
+    result = run.result_json
+    assert image_url in fetcher.calls
+    assert qr_url in fetcher.calls
+    assert result['qr_codes'][0]['image_url'] == image_url
+    assert result['extraction_origin'] == 'submitted_material_and_qr'
+    assert result['site_assessment']['status'] == 'issuer_website_found'

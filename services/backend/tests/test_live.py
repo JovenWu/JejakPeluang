@@ -53,7 +53,8 @@ INTERNSHIP_TEXT = (
 
 def _extraction_ok(extraction):
     required = {'title', 'issuer', 'deadline', 'category', 'region',
-        'eligibility', 'fees', 'requested_data', 'source_hint'}
+        'description', 'eligibility', 'fees', 'requested_data',
+        'application_url', 'source_hint'}
     return isinstance(extraction, dict) and required <= extraction.keys()
 
 
@@ -102,7 +103,7 @@ def test_live_typesafe_returns_typed_judgments():
     logger.info('jev model=%s answers=%r', model, answers)
     assert model
     assert set(answers) >= {'doc_kind', 'official_announcement',
-        'source_authority', 'deadline_corroborated'}
+        'issuer_website', 'source_authority', 'deadline_corroborated'}
     assert 0.0 <= answers['official_announcement']['noul'] <= 1.0
     assert answers['doc_kind']['choice'] in ('official_listing',
         'aggregator_repost', 'social_post', 'unrelated',

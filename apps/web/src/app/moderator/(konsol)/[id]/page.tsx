@@ -2,12 +2,21 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
+import { AiEvidenceSummary } from '@/components/ai-evidence-summary'
 import { LoadError } from '@/components/load-error'
 import { DecisionPanel } from '@/components/moderator/decision-panel'
 import { STATE_LABEL, StateTag, TERMINAL_STATES } from '@/components/moderator/state-tag'
 import { Tag, VerdictTag } from '@/components/tags'
 import type { ScreeningView, SubmissionDetail } from '@/lib/api'
-import { DOC_KIND_LABEL, type Evidence, JUDGMENT_LABEL, type Judgment, readEvidence } from '@/lib/evidence'
+import {
+  DISCOVERY_PURPOSE_LABEL,
+  DISCOVERY_STATUS_LABEL,
+  DOC_KIND_LABEL,
+  type Evidence,
+  JUDGMENT_LABEL,
+  type Judgment,
+  readEvidence,
+} from '@/lib/evidence'
 import { displayUrl, formatBytes, formatDate, formatDateTime } from '@/lib/format'
 import { moderatorApi } from '@/lib/moderator'
 import {
@@ -18,6 +27,7 @@ import {
   OUTCOME_COPY,
   readExtracted,
   readVerdicts,
+  siteAssessmentCopy,
 } from '@/lib/screening'
 
 export const metadata: Metadata = { title: 'Bukti kiriman' }
@@ -35,9 +45,18 @@ const REPORT_LABEL: Record<string, string> = {
 }
 
 const SOURCE_MATCH_LABEL: Record<string, string> = {
-  true: 'halaman resmi ditemukan, data selaras',
-  false: 'tidak ada halaman resmi yang memenuhi syarat',
-  null: 'tidak tersedia',
+  true: 'AI menilai ada pengumuman penerbit dengan data selaras',
+  false: 'AI belum menemukan pengumuman penerbit yang memenuhi sinyal',
+  null: 'belum tersedia',
+}
+
+const EVIDENCE_ORIGIN_LABEL: Record<string, string> = {
+  submitted_url: 'tautan kiriman',
+  qr_code: 'tujuan QR',
+  opportunity: 'hasil pencarian peluang',
+  issuer_website: 'pencarian situs penerbit',
+  application_url: 'URL pendaftaran',
+  source_hint: 'sumber disebut di teks',
 }
 
 const DECISION_LABEL: Record<string, string> = {
@@ -115,6 +134,7 @@ function EvidenceSection({ evidence, screening }: { evidence: Evidence; screenin
   const verdicts = readVerdicts(screening)
   return (
     <div className="space-y-5">
+      <AiEvidenceSummary screening={screening} />
       <Panel title="Perbandingan per kolom" aside={<span className="font-mono text-2xs text-ink-3">ekstraksi vs sumber</span>}>
         <div className="-mx-4 -my-4 overflow-x-auto">
           <table className="w-full min-w-[36rem] text-sm">
@@ -129,7 +149,8 @@ function EvidenceSection({ evidence, screening }: { evidence: Evidence; screenin
             <tbody className="divide-y divide-rule align-top">
               {COMPARED_FIELDS.map((field) => {
                 const raw = extracted?.[field] ?? null
-                const value = field === 'category' && raw ? (EXTRACTED_CATEGORY_LABEL[raw] ?? raw) : raw
+                const text = Array.isArray(raw) ? raw.join(', ') : raw
+                const value = field === 'category' && text ? (EXTRACTED_CATEGORY_LABEL[text] ?? text) : text
                 const verdict = verdicts[field]
                 return (
                   <tr key={field}>
@@ -144,31 +165,114 @@ function EvidenceSection({ evidence, screening }: { evidence: Evidence; screenin
                   </tr>
                 )
               })}
-              <tr>
-                <th scope="row" className="px-4 py-2.5 text-left font-semibold">Biaya</th>
-                <td className="px-4 py-2.5" colSpan={3}>
-                  {extracted?.fees ?? <span className="text-ink-3">tidak disebut</span>}
-                </td>
-              </tr>
-              <tr>
-                <th scope="row" className="px-4 py-2.5 text-left font-semibold whitespace-nowrap">Data diminta</th>
-                <td className="px-4 py-2.5" colSpan={3}>
-                  {extracted && extracted.requested_data.length > 0 ? (
-                    extracted.requested_data.join(', ')
-                  ) : (
-                    <span className="text-ink-3">tidak disebut</span>
-                  )}
-                </td>
-              </tr>
             </tbody>
           </table>
         </div>
         {evidence.notes ? <p className="mt-6 border-t border-rule pt-3 text-sm text-ink-2">{evidence.notes}</p> : null}
       </Panel>
 
+      {evidence.siteAssessment ? (
+        <Panel title="Situs penerbit dan QR">
+          <p className="mb-4 text-sm leading-relaxed text-ink-2">
+            {siteAssessmentCopy(evidence.siteAssessment.status)} Penilaian ini membantu pencarian, bukan pengesahan otomatis.
+          </p>
+          {extracted?.application_url || extracted?.source_hint ? (
+            <dl className="mb-4 grid gap-3 text-sm sm:grid-cols-2">
+              {extracted.application_url ? (
+                <div className="min-w-0">
+                  <dt className="text-xs font-semibold text-ink-3">URL pendaftaran terbaca</dt>
+                  <dd className="mt-1 break-all">
+                    <a href={extracted.application_url} target="_blank" rel="noopener noreferrer nofollow" className="link">
+                      {displayUrl(extracted.application_url)}
+                    </a>
+                  </dd>
+                </div>
+              ) : null}
+              {extracted.source_hint ? (
+                <div className="min-w-0">
+                  <dt className="text-xs font-semibold text-ink-3">Sumber yang disebut dalam teks</dt>
+                  <dd className="mt-1 break-all">
+                    <a href={extracted.source_hint} target="_blank" rel="noopener noreferrer nofollow" className="link">
+                      {displayUrl(extracted.source_hint)}
+                    </a>
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+          ) : null}
+          {evidence.siteAssessment.issuerWebsites.length > 0 ? (
+            <div className="border-t border-rule pt-3">
+              <h3 className="kicker mb-2">Kandidat situs</h3>
+              <ul className="space-y-2 text-sm">
+                {evidence.siteAssessment.issuerWebsites.map((site) => (
+                  <li key={site.url} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <a href={site.url} target="_blank" rel="noopener noreferrer nofollow" className="link min-w-0 flex-1 break-all">
+                      {displayUrl(site.url)}
+                    </a>
+                    <span className="text-xs text-ink-3">
+                      {site.basis === 'moderator_confirmed_domain' ? 'domain pernah disetujui moderator' : 'kandidat dinilai AI'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {evidence.siteAssessment.socialSources.length > 0 ? (
+            <div className="mt-4 border-t border-rule pt-3">
+              <h3 className="kicker mb-2">Kanal sosial</h3>
+              <ul className="space-y-2 text-sm">
+                {evidence.siteAssessment.socialSources.map((source) => (
+                  <li key={source.url} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <a href={source.url} target="_blank" rel="noopener noreferrer nofollow" className="link min-w-0 flex-1 break-all">
+                      {source.platform ?? displayUrl(source.url)}
+                    </a>
+                    <span className="text-xs text-ink-3">
+                      {source.issuerChannel ? 'AI menilai kanal terkait penerbit' : 'hubungan ke penerbit belum terbukti'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {evidence.siteAssessment.unclassifiedSources.length > 0 ? (
+            <div className="mt-4 border-t border-rule pt-3">
+              <h3 className="kicker mb-2">Belum cukup bukti untuk mengelompokkan sumber</h3>
+              <ul className="space-y-2 text-sm">
+                {evidence.siteAssessment.unclassifiedSources.map((url) => (
+                  <li key={url} className="min-w-0">
+                    <a href={url} target="_blank" rel="noopener noreferrer nofollow" className="link break-all">
+                      {displayUrl(url)}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {evidence.qrCodes.length > 0 ? (
+            <div className="mt-4 border-t border-rule pt-3">
+              <h3 className="kicker mb-2">Tautan yang dipindai dari QR</h3>
+              <ul className="space-y-2 text-sm">
+                {evidence.qrCodes.map((code) => (
+                  <li key={`${code.url}-${code.origin}`} className="min-w-0">
+                    <a href={code.url} target="_blank" rel="noopener noreferrer nofollow" className="link break-all">
+                      {displayUrl(code.url)}
+                    </a>
+                    <span className="ml-2 text-xs text-ink-3">{code.origin ?? 'gambar'}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </Panel>
+      ) : null}
+
       <Panel
         title="Penemuan sumber"
-        aside={evidence.discoveryStatus ? <span className="font-mono text-2xs text-ink-3">{evidence.discoveryStatus}</span> : null}
+        aside={evidence.discoveryStatus ? (
+          <span className="font-mono text-2xs text-ink-3">
+            {DISCOVERY_STATUS_LABEL[evidence.discoveryStatus] ?? evidence.discoveryStatus}
+          </span>
+        ) : null}
       >
         {evidence.discoveryQuery ? (
           <p className="mb-3 text-sm">
@@ -182,6 +286,9 @@ function EvidenceSection({ evidence, screening }: { evidence: Evidence; screenin
               <li key={`${result.url}-${index}`} className="flex items-baseline gap-3 py-2">
                 <span className="font-mono text-2xs text-ink-3">{String(index + 1).padStart(2, '0')}</span>
                 <span className="min-w-0 flex-1">
+                  {result.purpose ? (
+                    <span className="kicker mb-0.5 block">{DISCOVERY_PURPOSE_LABEL[result.purpose] ?? result.purpose}</span>
+                  ) : null}
                   <span className="block truncate">{result.title ?? '(tanpa judul)'}</span>
                   <a href={result.url} target="_blank" rel="noopener noreferrer nofollow" className="link block truncate font-mono text-xs">
                     {displayUrl(result.url)}
@@ -205,6 +312,7 @@ function EvidenceSection({ evidence, screening }: { evidence: Evidence; screenin
                   <a href={page.finalUrl ?? page.url} target="_blank" rel="noopener noreferrer nofollow" className="link min-w-0 flex-1 truncate font-mono text-xs">
                     {displayUrl(page.finalUrl ?? page.url)}
                   </a>
+                  {page.origin ? <Tag tone="mute">{EVIDENCE_ORIGIN_LABEL[page.origin] ?? page.origin}</Tag> : null}
                   {page.status ? <span className="font-mono text-2xs text-ink-3">HTTP {page.status}</span> : null}
                   {page.contentType ? <span className="font-mono text-2xs text-ink-3">{page.contentType.split(';')[0]}</span> : null}
                   {page.error ? <Tag tone="warn">{ERROR_KIND_LABEL[page.error] ?? page.error}</Tag> : null}
@@ -271,6 +379,7 @@ function toScreening(detail: SubmissionDetail): ScreeningView | null {
     return null
   }
   const comparison = (result.comparison ?? null) as { field_verdicts?: Record<string, unknown> } | null
+  const site = (result.site_assessment ?? null) as Record<string, unknown> | null
   return {
     state: run.state,
     outcome: typeof result.outcome === 'string' ? result.outcome : null,
@@ -278,6 +387,15 @@ function toScreening(detail: SubmissionDetail): ScreeningView | null {
     field_verdicts: comparison?.field_verdicts ?? null,
     sources: [],
     ai_source_match: typeof result.ai_source_match === 'boolean' ? result.ai_source_match : null,
+    confidence: (result.confidence ?? null) as ScreeningView['confidence'],
+    site_assessment: site ? {
+      status: typeof site.status === 'string' ? site.status : 'inconclusive',
+      issuer_website_candidates: Array.isArray(site.issuer_websites) ? site.issuer_websites.length : 0,
+      social_sources: Array.isArray(site.social_sources) ? site.social_sources.length : 0,
+      third_party_sources: Array.isArray(site.third_party_sources) ? site.third_party_sources.length : 0,
+      unclassified_sources: Array.isArray(site.unclassified_sources) ? site.unclassified_sources.length : 0,
+      qr_codes_found: typeof site.qr_codes_found === 'number' ? site.qr_codes_found : 0,
+    } : null,
     errors: [],
     finished_at: run.finished_at,
   }
@@ -308,6 +426,17 @@ export default async function SubmissionEvidencePage({ params }: Props): Promise
   const run = detail.screening_run
   const evidence = readEvidence(run?.result_json)
   const screening = toScreening(detail)
+  const extracted = screening ? readExtracted(screening) : null
+  const sourceCandidates: { url: string; label: string }[] = []
+  function addSourceCandidate(url: string | null | undefined, label: string): void {
+    if (url && !sourceCandidates.some((candidate) => candidate.url === url)) {
+      sourceCandidates.push({ url, label })
+    }
+  }
+  for (const site of evidence?.siteAssessment?.issuerWebsites ?? []) {
+    addSourceCandidate(site.url, site.basis === 'moderator_confirmed_domain'
+      ? 'Domain pernah disetujui moderator' : 'Kandidat situs dinilai AI')
+  }
   const terminal = TERMINAL_STATES.has(detail.state)
   const openReports = detail.reports.filter((report) => report.status === 'open').length
 
@@ -432,7 +561,11 @@ export default async function SubmissionEvidencePage({ params }: Props): Promise
               ) : null}
             </div>
           ) : (
-            <DecisionPanel submissionId={detail.id} hasUrl={Boolean(detail.submitted_url)} extracted={screening ? readExtracted(screening) : null} />
+            <DecisionPanel
+              submissionId={detail.id}
+              sourceCandidates={sourceCandidates}
+              extracted={extracted}
+            />
           )}
 
           {detail.decisions.length > 0 ? (

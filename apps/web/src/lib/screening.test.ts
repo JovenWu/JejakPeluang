@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ScreeningView } from './api'
-import { degradedCopy, headlineText, readExtracted, readVerdicts, summarize } from './screening'
+import {
+  degradedCopy,
+  headlineText,
+  readExtracted,
+  readVerdicts,
+  siteAssessmentCopy,
+  summarize,
+} from './screening'
 
 function screening(overrides: Partial<ScreeningView>): ScreeningView {
   return {
@@ -72,5 +79,41 @@ describe('readers', () => {
     })
     expect(readExtracted(view)).toMatchObject({ title: null, issuer: 'Kemendikbud', requested_data: ['KTP'] })
     expect(readVerdicts(view)).toEqual({ issuer: { verdict: 'supported', quote: null } })
+  })
+
+  it('reads the full catalogue draft and expanded comparisons', () => {
+    const view = screening({
+      extracted: {
+        title: 'Beasiswa X',
+        category: 'scholarship',
+        description: 'Program beasiswa untuk mahasiswa aktif.',
+        fees: 'Gratis',
+        requested_data: ['CV', 'Transkrip'],
+      },
+      field_verdicts: {
+        description: { verdict: 'supported', quote: 'Program beasiswa' },
+        fees: { verdict: 'supported', quote: 'Tanpa biaya' },
+        requested_data: { verdict: 'not_found', quote: null },
+      },
+    })
+
+    expect(readExtracted(view)).toMatchObject({
+      description: 'Program beasiswa untuk mahasiswa aktif.',
+      fees: 'Gratis',
+      requested_data: ['CV', 'Transkrip'],
+    })
+    expect(readVerdicts(view)).toMatchObject({
+      description: { verdict: 'supported' },
+      fees: { verdict: 'supported' },
+      requested_data: { verdict: 'not_found' },
+    })
+  })
+})
+
+describe('siteAssessmentCopy', () => {
+  it('does not turn an Instagram-only result into an authenticity verdict', () => {
+    const copy = siteAssessmentCopy('social_only').toLowerCase()
+    expect(copy).toContain('kanal sosial')
+    expect(copy).not.toMatch(/\b(aman|penipuan|asli|palsu)\b/)
   })
 })

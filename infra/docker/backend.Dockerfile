@@ -1,5 +1,6 @@
 ARG UV_IMAGE
 FROM ${UV_IMAGE}
+RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-eng tesseract-ocr-data-ind
 WORKDIR /workspace/services/backend
 COPY services/backend/ ./
 RUN uv sync --frozen

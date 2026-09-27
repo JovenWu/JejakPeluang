@@ -6,7 +6,8 @@ import pytest
 
 from app.services.providers import (MAX_RETRY_DELAY_SECONDS, ProviderError,
     ProviderUnavailable, post_json)
-from app.services.screening_jev import TypeSafeJudge, answers_to_json
+from app.services.screening_jev import (TypeSafeJudge, answers_to_json,
+    build_questions)
 from app.services.screening_openrouter import OpenRouterClient
 from app.services.screening_tavily import TavilySearcher
 
@@ -128,8 +129,9 @@ def _chat_response(payload: dict):
 def test_openrouter_extract_parses_schema_content():
     seen = {}
     expected = {'title': 'Beasiswa X', 'issuer': 'Y', 'deadline': None,
-        'category': 'scholarship', 'region': None, 'eligibility': None,
-        'fees': None, 'requested_data': [], 'source_hint': None}
+        'category': 'scholarship', 'region': None, 'description': None,
+        'eligibility': None, 'fees': None, 'requested_data': [],
+        'application_url': None, 'source_hint': None}
     def handler(request):
         seen['body'] = json.loads(request.content)
         seen['auth'] = request.headers.get('authorization')
@@ -191,6 +193,13 @@ def test_missing_api_key_is_config_error():
     with pytest.raises(ProviderError) as exc:
         client.extract_fields('t')
     assert exc.value.kind == 'config'
+
+
+def test_jev_questions_separate_issuer_site_from_opportunity_listing():
+    questions = build_questions(has_deadline=True)
+
+    assert {'issuer_website', 'official_announcement', 'doc_kind'} <= set(questions)
+    assert 'deadline_corroborated' in questions
 
 
 def test_jev_answers_serialize_to_json():

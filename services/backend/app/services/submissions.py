@@ -375,15 +375,54 @@ def _official_per_url(result: dict) -> dict[str, bool | None]:
     return official
 
 
+def _public_source_url(item: dict) -> str | None:
+    url = item.get('final_url') or item.get('url')
+    if not isinstance(url, str) or item.get('origin') != 'qr_code':
+        return url
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return None
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, '', ''))
+
+
 def _public_sources(result: dict) -> list[dict]:
     """Fetched evidence pages, minus body text — safe for public display."""
     official = _official_per_url(result)
-    return [{'url': item.get('final_url') or item.get('url'),
-        'status': item.get('status'),
-        'official': official.get(item.get('url'), official.get(
-            item.get('final_url'))),
-        'error': item.get('extract_error') or item.get('fetch_error')}
-        for item in result.get('evidence') or []]
+    sources = []
+    for item in result.get('evidence') or []:
+        if item.get('origin') == 'submitted_media':
+            continue
+        url = _public_source_url(item)
+        if not url:
+            continue
+        sources.append({'url': url, 'status': item.get('status'),
+            'official': official.get(item.get('url'), official.get(
+                item.get('final_url'))),
+            'error': item.get('extract_error') or item.get('fetch_error'),
+            'origin': item.get('origin')})
+    return sources
+
+
+def _public_extraction(raw: object) -> dict | None:
+    if not isinstance(raw, dict):
+        return None
+    fields = ('title', 'issuer', 'deadline', 'category', 'region',
+        'description', 'eligibility', 'fees', 'requested_data')
+    return {field: raw[field] for field in fields if field in raw}
+
+
+def _public_site_assessment(raw: object) -> dict | None:
+    if not isinstance(raw, dict):
+        return None
+    return {
+        'status': raw.get('status', 'inconclusive'),
+        'issuer_website_candidates': len(raw.get('issuer_websites') or []),
+        'social_sources': len(raw.get('social_sources') or []),
+        'third_party_sources': len(raw.get('third_party_sources') or []),
+        'unclassified_sources': len(raw.get('unclassified_sources') or []),
+        'qr_codes_found': raw.get('qr_codes_found', 0),
+    }
 
 
 def screening_projection(run: ScreeningRun | None) -> dict | None:
@@ -398,17 +437,21 @@ def screening_projection(run: ScreeningRun | None) -> dict | None:
         return None
     projection: dict = {'state': run.state, 'outcome': None,
         'extracted': None, 'field_verdicts': None, 'sources': [],
-        'ai_source_match': None, 'errors': [],
+        'ai_source_match': None, 'confidence': None,
+        'site_assessment': None, 'errors': [],
         'finished_at': run.finished_at}
     result = run.result_json if isinstance(run.result_json, dict) else None
     if result is None:
         return projection
     projection['outcome'] = result.get('outcome')
-    projection['extracted'] = result.get('extraction')
+    projection['extracted'] = _public_extraction(result.get('extraction'))
     projection['field_verdicts'] = ((result.get('comparison') or {})
         .get('field_verdicts'))
     projection['sources'] = _public_sources(result)
     projection['ai_source_match'] = result.get('ai_source_match')
+    projection['confidence'] = result.get('confidence')
+    projection['site_assessment'] = _public_site_assessment(
+        result.get('site_assessment'))
     projection['errors'] = [{'stage': e.get('stage'), 'kind': e.get('kind')}
         for e in result.get('errors') or [] if isinstance(e, dict)]
     return projection
