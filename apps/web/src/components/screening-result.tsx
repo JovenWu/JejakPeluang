@@ -9,6 +9,7 @@ import {
 import type { Category } from '@/lib/api'
 
 import { SourceMatchBadge, VerdictBadge } from './badges'
+import { Card, CardHeader } from './ui'
 
 const FIELD_ORDER = [
   'title',
@@ -21,12 +22,21 @@ const FIELD_ORDER = [
   'requested_data',
 ]
 
+const SOURCE_ERROR_LABELS: Record<string, string> = {
+  js_required: 'butuh JavaScript',
+  empty_content: 'tidak ada teks',
+}
+
+function sourceErrorLabel(kind: string): string {
+  return SOURCE_ERROR_LABELS[kind] ?? 'gagal diambil'
+}
+
 function fieldText(value: unknown): string {
   if (value === null || value === undefined || value === '') {
-    return '-'
+    return '—'
   }
   if (Array.isArray(value)) {
-    return value.length > 0 ? value.join(', ') : '-'
+    return value.length > 0 ? value.join(', ') : '—'
   }
   return String(value)
 }
@@ -42,134 +52,141 @@ export function ScreeningResult({
     ? (OUTCOME_LABELS[screening.outcome] ?? screening.outcome)
     : ''
 
-  return (
-    <div className="space-y-10">
-      {screening.state === 'failed' && (
-        <p className="text-muted">
-          pemeriksaan gagal, silakan coba lagi nanti.
+  if (screening.state === 'failed') {
+    return (
+      <Card className="p-5">
+        <p className="text-sm text-bad">
+          Pemeriksaan gagal, coba kirim ulang nanti.
         </p>
-      )}
+      </Card>
+    )
+  }
 
-      {screening.state === 'complete' && (
-        <>
-          <div>
-            <div className="flex items-baseline justify-between gap-4">
-              <h2 className="text-xs text-muted lowercase">hasil.</h2>
-              <SourceMatchBadge match={screening.ai_source_match} />
-            </div>
-            <p className="mt-2 text-xs text-muted">{outcomeLabel}</p>
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader
+          eyebrow="Hasil pemeriksaan"
+          hint={screening.finished_at ? undefined : ''}
+        />
+        <div className="space-y-3 p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-ai-tint px-2.5 py-1 text-[11px] font-semibold leading-none text-ai">
+              hasil AI, bukan vonis
+            </span>
+            <SourceMatchBadge match={screening.ai_source_match} />
           </div>
-
-          {screening.extracted && (
-            <section>
-              <h3 className="border-b border-line pb-2 text-xs text-muted lowercase">
-                detail dari kiriman.
-              </h3>
-              <dl className="divide-y divide-line">
-                {FIELD_ORDER.filter((field) => field in extracted).map(
-                  (field) => (
-                    <div
-                      key={field}
-                      className="flex justify-between gap-6 py-2"
-                    >
-                      <dt className="text-muted">
-                        {FIELD_LABELS[field] ?? field}
-                      </dt>
-                      <dd className="text-right">
-                        {field === 'category' &&
-                        typeof extracted[field] === 'string' &&
-                        extracted[field] in CATEGORY_LABELS
-                          ? CATEGORY_LABELS[extracted[field] as Category]
-                          : fieldText(extracted[field])}
-                      </dd>
-                    </div>
-                  ),
-                )}
-              </dl>
-            </section>
-          )}
-
-          {screening.sources.length > 0 && (
-            <section>
-              <h3 className="border-b border-line pb-2 text-xs text-muted lowercase">
-                sumber yang diperiksa.
-              </h3>
-              <ul className="divide-y divide-line">
-                {screening.sources.map((source) => (
-                  <li
-                    key={source.url}
-                    className="flex items-baseline justify-between gap-4 py-2"
-                  >
-                    <a
-                      href={source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="truncate underline underline-offset-4 hover:text-muted"
-                    >
-                      {source.url}
-                    </a>
-                    <span className="shrink-0 text-xs">
-                      {source.official === true && (
-                        <span className="text-good">resmi</span>
-                      )}
-                      {source.official === false && (
-                        <span className="text-muted">bukan resmi</span>
-                      )}
-                      {source.official === null && (
-                        <span className="text-muted">
-                          {source.status === null
-                            ? 'gagal diambil'
-                            : `status ${source.status}`}
-                        </span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {Object.keys(verdicts).length > 0 && (
-            <section>
-              <h3 className="border-b border-line pb-2 text-xs text-muted lowercase">
-                perbandingan dengan sumber.
-              </h3>
-              <ul className="divide-y divide-line">
-                {Object.entries(verdicts).map(([field, raw]) => {
-                  const verdict = raw as {
-                    verdict?: string
-                    quote?: string | null
-                  }
-                  return (
-                    <li key={field} className="py-2">
-                      <div className="flex items-baseline justify-between gap-4">
-                        <span className="text-muted">
-                          {FIELD_LABELS[field] ?? field}
-                        </span>
-                        <VerdictBadge verdict={verdict.verdict ?? ''} />
-                      </div>
-                      {verdict.quote && (
-                        <p className="mt-1 text-xs text-muted">
-                          &ldquo;{verdict.quote}&rdquo;
-                        </p>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            </section>
-          )}
-
+          <p className="text-sm text-body">{outcomeLabel}</p>
           {screening.errors.length > 0 && (
-            <p className="text-xs text-muted">
+            <p className="text-xs text-faint">
               sebagian pemeriksaan tidak tuntas:{' '}
               {screening.errors
-                .map((error) => error.stage)
+                .map((error) => error.kind ?? error.stage)
                 .filter(Boolean)
                 .join(', ')}
             </p>
           )}
-        </>
+        </div>
+      </Card>
+
+      {screening.extracted && (
+        <Card>
+          <CardHeader eyebrow="Detail dari kiriman" />
+          <dl className="divide-y divide-line">
+            {FIELD_ORDER.filter((field) => field in extracted).map(
+              (field) => (
+                <div
+                  key={field}
+                  className="flex items-baseline justify-between gap-6 px-5 py-3"
+                >
+                  <dt className="text-sm text-body">
+                    {FIELD_LABELS[field] ?? field}
+                  </dt>
+                  <dd className="text-right text-sm font-medium">
+                    {field === 'category' &&
+                    typeof extracted[field] === 'string' &&
+                    extracted[field] in CATEGORY_LABELS
+                      ? CATEGORY_LABELS[extracted[field] as Category]
+                      : fieldText(extracted[field])}
+                  </dd>
+                </div>
+              ),
+            )}
+          </dl>
+        </Card>
+      )}
+
+      {screening.sources.length > 0 && (
+        <Card>
+          <CardHeader eyebrow="Sumber yang diperiksa" />
+          <ul className="divide-y divide-line">
+            {screening.sources.map((source) => (
+              <li
+                key={source.url}
+                className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
+              >
+                <a
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-w-0 break-all font-mono text-xs text-body hover:text-ink hover:underline"
+                >
+                  {source.url}
+                </a>
+                <span className="shrink-0">
+                  {source.error ? (
+                    <span className="rounded-full bg-warn-tint px-2.5 py-1 text-[11px] font-semibold leading-none text-warn-ink">
+                      {sourceErrorLabel(source.error)}
+                    </span>
+                  ) : source.official === true ? (
+                    <span className="rounded-full bg-good-tint px-2.5 py-1 text-[11px] font-semibold leading-none text-good">
+                      resmi
+                    </span>
+                  ) : source.official === false ? (
+                    <span className="rounded-full bg-surface px-2.5 py-1 text-[11px] font-semibold leading-none text-body">
+                      bukan resmi
+                    </span>
+                  ) : (
+                    <span className="text-xs text-faint">
+                      {source.status === null
+                        ? 'gagal diambil'
+                        : `status ${source.status}`}
+                    </span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {Object.keys(verdicts).length > 0 && (
+        <Card>
+          <CardHeader eyebrow="Perbandingan dengan sumber" />
+          <ul className="divide-y divide-line">
+            {Object.entries(verdicts).map(([field, raw]) => {
+              const verdict = raw as {
+                verdict?: string
+                quote?: string | null
+              }
+              return (
+                <li key={field} className="px-5 py-3">
+                  <div className="flex items-baseline justify-between gap-4">
+                    <span className="text-sm text-body">
+                      {FIELD_LABELS[field] ?? field}
+                    </span>
+                    <VerdictBadge verdict={verdict.verdict ?? ''} />
+                  </div>
+                  {verdict.quote && (
+                    <p className="mt-1.5 text-xs leading-5 text-faint">
+                      &ldquo;{verdict.quote}&rdquo;
+                    </p>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </Card>
       )}
     </div>
   )

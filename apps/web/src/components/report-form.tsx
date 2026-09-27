@@ -3,6 +3,7 @@
 import type { JSX } from 'react'
 import { useState } from 'react'
 
+import { BUTTON_PRIMARY, INPUT_CLASS } from '@/components/ui'
 import { REPORT_CATEGORIES } from '@/lib/format'
 
 type Phase = 'idle' | 'sending' | 'sent' | 'error'
@@ -28,25 +29,25 @@ export function ReportForm({ slug }: { slug: string }): JSX.Element {
 
   if (phase === 'sent') {
     return (
-      <p className="border border-line p-4 text-sm text-muted">
-        laporan diterima, moderator akan meninjaunya.
+      <p className="rounded-lg bg-good-tint px-4 py-3 text-sm text-good">
+        Laporan diterima. Moderator akan meninjaunya tanpa mengubah status
+        listing.
       </p>
     )
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
-      <p className="text-xs text-muted lowercase">laporkan masalah.</p>
+    <form onSubmit={onSubmit} className="space-y-4">
       <div className="flex flex-wrap gap-2">
         {Object.entries(REPORT_CATEGORIES).map(([value, label]) => (
           <button
             key={value}
             type="button"
             onClick={() => setCategory(value)}
-            className={`px-3 py-1 text-xs ${
+            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize ${
               category === value
                 ? 'bg-ink text-paper'
-                : 'border border-line text-muted hover:border-ink hover:text-ink'
+                : 'border border-line text-body hover:border-ink hover:text-ink'
             }`}
           >
             {label}
@@ -56,21 +57,22 @@ export function ReportForm({ slug }: { slug: string }): JSX.Element {
       <textarea
         value={description}
         onChange={(event) => setDescription(event.target.value)}
-        rows={2}
+        rows={3}
         maxLength={2000}
-        placeholder="catatan (opsional)"
-        className="w-full border border-line bg-transparent p-3 text-sm outline-none placeholder:text-muted/50 focus:border-ink"
+        placeholder="Ceritakan masalahnya, opsional."
+        className={INPUT_CLASS}
       />
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <button
           type="submit"
           disabled={phase === 'sending'}
-          className="border border-ink px-3 py-1.5 text-xs hover:bg-ink hover:text-paper disabled:opacity-40"
+          className={BUTTON_PRIMARY}
         >
-          {phase === 'sending' ? 'mengirim…' : 'kirim laporan'}
+          {phase === 'sending' ? 'Mengirim…' : 'Kirim laporan'}
         </button>
+        <p className="text-xs text-faint">Anonim, maks 20 laporan per jam.</p>
         {phase === 'error' && (
-          <p className="text-xs text-bad">gagal terkirim, coba lagi nanti</p>
+          <p className="text-xs text-bad">Gagal terkirim, coba lagi nanti.</p>
         )}
       </div>
     </form>

@@ -2,15 +2,20 @@
 
 import type { JSX } from 'react'
 
+import { Eyebrow } from '@/components/ui'
+
 export default function Error({ reset }: { reset: () => void }): JSX.Element {
   return (
-    <div className="space-y-4 pt-16">
-      <h1 className="text-4xl font-semibold tracking-tight">ada yang salah.</h1>
+    <div className="mx-auto w-full max-w-3xl space-y-6 px-5 py-24">
+      <Eyebrow>Galat</Eyebrow>
+      <h1 className="font-display text-4xl font-bold tracking-[-0.02em]">
+        Ada yang salah.
+      </h1>
       <button
         onClick={reset}
-        className="underline underline-offset-4 hover:text-muted"
+        className="text-sm font-semibold text-accent hover:underline"
       >
-        coba lagi
+        Coba lagi
       </button>
     </div>
   )

@@ -11,7 +11,7 @@ import { formatDateTime } from '@/lib/format'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'antrean',
+  title: 'Antrean',
 }
 
 export default async function IncomingDetailPage({
@@ -28,45 +28,57 @@ export default async function IncomingDetailPage({
     notFound()
   }
 
+  const extracted = data.screening?.extracted
+  const title =
+    typeof extracted?.title === 'string' && extracted.title
+      ? extracted.title
+      : 'Hasil pemeriksaan'
+
   return (
-    <div className="space-y-8 pb-8">
-      <div className="space-y-3">
-        <Link href="/antrean" className="text-xs text-muted hover:text-ink">
-          ← antrean
+    <div className="mx-auto w-full max-w-3xl px-5 py-10">
+      <nav className="flex items-center gap-2 text-xs text-faint">
+        <Link href="/antrean" className="hover:text-ink">
+          Antrean
         </Link>
-        <div>
-          <p className="font-mono text-xs text-muted">{data.ref}</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            {typeof data.screening?.extracted?.title === 'string' &&
-            data.screening.extracted.title
-              ? data.screening.extracted.title
-              : 'hasil pemeriksaan.'}
-          </h1>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <span>/</span>
+        <span className="font-mono text-ink">{data.ref}</span>
+      </nav>
+
+      <div className="mt-6 space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
           <VerificationBadge verification={data.verification} />
-          <span className="text-xs text-muted">
+          <span className="text-xs text-faint">
             dikirim {formatDateTime(data.created_at)}
           </span>
         </div>
+        <h1 className="font-display text-3xl font-bold tracking-[-0.02em]">
+          {title}
+        </h1>
         {data.submitted_url && (
           <a
             href={data.submitted_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block break-all font-mono text-xs underline underline-offset-4 hover:text-muted"
+            className="inline-block break-all font-mono text-xs text-body hover:text-ink hover:underline"
           >
             {data.submitted_url}
           </a>
         )}
       </div>
 
-      {data.screening && <ScreeningResult screening={data.screening} />}
+      <div className="mt-8">
+        {data.screening && <ScreeningResult screening={data.screening} />}
+      </div>
 
-      <p className="border border-line p-4 text-xs text-muted">
-        hasil AI, belum ditinjau moderator. moderator memutuskan apakah ini
-        masuk katalog.
-      </p>
+      <div className="mt-6 rounded-xl border border-ai/30 bg-ai-tint/40 p-5">
+        <p className="text-sm font-medium text-ai">
+          Hasil AI, belum ditinjau moderator.
+        </p>
+        <p className="mt-1 text-sm leading-6 text-body">
+          Moderator memutuskan apakah kiriman ini masuk katalog sebagai
+          peluang terverifikasi.
+        </p>
+      </div>
     </div>
   )
 }

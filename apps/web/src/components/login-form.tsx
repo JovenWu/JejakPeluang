@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import type { FormEvent, JSX } from 'react'
 import { useState } from 'react'
 
+import { BUTTON_PRIMARY, Card, CardHeader, INPUT_CLASS } from './ui'
+
 export function LoginForm(): JSX.Element {
   const router = useRouter()
   const [email, setEmail] = useState('')
@@ -27,49 +29,46 @@ export function LoginForm(): JSX.Element {
     }
     setError(
       response.status === 429
-        ? 'terlalu banyak percobaan, tunggu sebentar'
-        : 'email atau kata sandi salah',
+        ? 'Terlalu banyak percobaan, tunggu sebentar.'
+        : 'Nama pengguna atau kata sandi salah.',
     )
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
-      <div>
-        <label htmlFor="email" className="block text-xs text-muted lowercase">
-          email.
+    <Card>
+      <CardHeader eyebrow="Masuk" />
+      <form onSubmit={onSubmit} className="space-y-5 p-5">
+        <label className="block">
+          <span className="text-xs font-semibold">Nama pengguna</span>
+          <input
+            type="email"
+            required
+            autoComplete="username"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className={`${INPUT_CLASS} mt-2`}
+          />
         </label>
-        <input
-          id="email"
-          type="email"
-          required
-          autoComplete="username"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className="mt-1.5 w-full border-0 border-b border-line bg-transparent py-2 outline-none focus:border-ink"
-        />
-      </div>
-      <div>
-        <label htmlFor="password" className="block text-xs text-muted lowercase">
-          kata sandi.
+        <label className="block">
+          <span className="text-xs font-semibold">Kata sandi</span>
+          <input
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className={`${INPUT_CLASS} mt-2`}
+          />
         </label>
-        <input
-          id="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className="mt-1.5 w-full border-0 border-b border-line bg-transparent py-2 outline-none focus:border-ink"
-        />
-      </div>
-      {error && <p className="text-sm text-bad">{error}.</p>}
-      <button
-        type="submit"
-        disabled={busy}
-        className="bg-ink px-4 py-2 text-paper hover:bg-ink/80 disabled:opacity-40"
-      >
-        {busy ? 'memeriksa…' : 'masuk'}
-      </button>
-    </form>
+        {error && (
+          <p className="rounded-lg bg-bad-tint px-4 py-3 text-sm text-bad">
+            {error}
+          </p>
+        )}
+        <button type="submit" disabled={busy} className={BUTTON_PRIMARY}>
+          {busy ? 'Memeriksa…' : 'Masuk'}
+        </button>
+      </form>
+    </Card>
   )
 }

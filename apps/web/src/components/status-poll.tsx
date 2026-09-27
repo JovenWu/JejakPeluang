@@ -5,24 +5,24 @@ import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 
 import { ScreeningResult } from '@/components/screening-result'
+import { StateBadge } from '@/components/badges'
 import type { SubmissionStatus } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 
-import { readReceiptToken } from './check-form'
+import { readReceiptToken, storeReceiptToken } from './check-form'
+import { BUTTON_PRIMARY, Card, CardHeader, INPUT_CLASS } from './ui'
 
 const POLL_MS = 2500
 
 const STAGES = [
-  'mengambil konten',
-  'mencari sumber resmi',
-  'membaca halaman sumber',
-  'membandingkan detail',
-  'menilai kredibilitas sumber',
+  'Mengambil konten',
+  'Mencari sumber resmi',
+  'Membaca halaman sumber',
+  'Membandingkan detail',
+  'Menilai kredibilitas sumber',
 ]
 
 function stagedIndex(elapsedSeconds: number): number {
-  // Screening runs take seconds-to-a-minute; walk stages so the UI shows
-  // forward motion rather than one static spinner.
   return Math.min(Math.floor(elapsedSeconds / 4), STAGES.length - 1)
 }
 
@@ -37,65 +37,114 @@ function Loading({ startedAt }: { startedAt: number }): JSX.Element {
   }, [startedAt])
   const active = stagedIndex(elapsed)
   return (
-    <div className="space-y-3 border border-line p-4">
-      <p className="flex items-center gap-2 text-xs text-muted">
-        <span className="spin-slow inline-block h-3 w-3 rounded-full border border-ink border-t-transparent" />
-        memeriksa…
-      </p>
-      <ul className="space-y-1.5">
+    <Card>
+      <CardHeader
+        eyebrow="Pemeriksaan berjalan"
+        hint="biasanya kurang dari satu menit"
+      />
+      <ul className="space-y-3 p-5">
         {STAGES.map((stage, index) => (
-          <li
-            key={stage}
-            className={
-              index < active
-                ? 'text-muted line-through'
-                : index === active
-                  ? 'text-ink'
-                  : 'text-muted/40'
-            }
-          >
-            {index === active ? '› ' : '  '}
-            {stage}
+          <li key={stage} className="flex items-center gap-3 text-sm">
+            <span
+              className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                index < active
+                  ? 'border-good bg-good text-paper'
+                  : index === active
+                    ? 'border-accent text-accent'
+                    : 'border-line text-transparent'
+              }`}
+            >
+              {index < active ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="3" strokeLinecap="round" className="h-3 w-3">
+                  <path d="M4 12l5 5L20 6" />
+                </svg>
+              ) : index === active ? (
+                <span className="spin-slow h-2.5 w-2.5 rounded-full border border-accent border-t-transparent" />
+              ) : (
+                '·'
+              )}
+            </span>
+            <span className={index <= active ? 'text-ink' : 'text-faint'}>
+              {stage}
+            </span>
           </li>
         ))}
       </ul>
-    </div>
+    </Card>
   )
 }
 
-function ReceiptBanner({ token }: { token: string }): JSX.Element {
+function ReceiptBanner({
+  refId,
+  token,
+}: {
+  refId: string
+  token: string
+}): JSX.Element {
   const [copied, setCopied] = useState(false)
   return (
-    <div className="border border-ink p-4">
-      <p className="text-xs text-muted">
-        token resi, simpan untuk membuka hasil ini lagi nanti.
-      </p>
-      <div className="mt-2 flex items-center gap-3">
-        <code className="truncate font-mono text-xs">{token}</code>
-        <button
-          type="button"
-          onClick={() => {
-            void navigator.clipboard.writeText(token)
-            setCopied(true)
-          }}
-          className="shrink-0 border border-line px-2 py-1 text-xs hover:border-ink"
-        >
-          {copied ? 'tersalin' : 'salin'}
-        </button>
+    <Card className="border-ink/20">
+      <CardHeader
+        eyebrow="Token resi, hanya tampil sekali"
+        hint="simpan sekarang"
+      />
+      <div className="space-y-4 p-5">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-faint">
+            Nomor rujukan
+          </p>
+          <p className="mt-1 font-mono text-lg font-semibold">{refId}</p>
+        </div>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-faint">
+            Token resi
+          </p>
+          <p className="mt-1 break-all font-mono text-sm">{token}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              void navigator.clipboard.writeText(token)
+              setCopied(true)
+            }}
+            className={BUTTON_PRIMARY}
+          >
+            {copied ? 'Tersalin' : 'Salin token'}
+          </button>
+          <a
+            href={`data:text/plain,${encodeURIComponent(
+              `JejakPeluang\nref: ${refId}\ntoken: ${token}\n`,
+            )}`}
+            download={`jejakpeluang-${refId}.txt`}
+            className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-body hover:border-ink hover:text-ink"
+          >
+            Unduh .txt
+          </a>
+        </div>
+        <p className="text-xs leading-5 text-faint">
+          Token tidak dapat dipulihkan, kami hanya menyimpan hash-nya. Tanpa
+          token, nomor rujukan saja tidak cukup untuk membuka hasil.
+        </p>
       </div>
-    </div>
+    </Card>
   )
 }
 
-function TokenGate({ onToken }: { onToken: (token: string) => void }): JSX.Element {
+function TokenGate({
+  refId,
+  onToken,
+}: {
+  refId: string
+  onToken: (token: string) => void
+}): JSX.Element {
   const [value, setValue] = useState('')
   return (
-    <div className="space-y-3 border border-line p-4">
-      <p className="text-xs text-muted">
-        masukkan token resi untuk melihat hasil kiriman ini.
-      </p>
+    <Card>
+      <CardHeader eyebrow="Masukkan token resi" />
       <form
-        className="flex gap-2"
+        className="space-y-4 p-5"
         onSubmit={(event) => {
           event.preventDefault()
           if (value.trim()) {
@@ -103,17 +152,23 @@ function TokenGate({ onToken }: { onToken: (token: string) => void }): JSX.Eleme
           }
         }}
       >
-        <input
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          placeholder="token resi"
-          className="w-full border-0 border-b border-line bg-transparent py-1.5 font-mono text-xs outline-none placeholder:text-muted/50 focus:border-ink"
-        />
-        <button className="shrink-0 border border-line px-3 text-xs hover:border-ink">
-          buka
-        </button>
+        <p className="text-sm text-body">
+          Token diberikan sekali saat kiriman diterima. Nomor rujukan ini:{' '}
+          <span className="font-mono text-xs">{refId}</span>
+        </p>
+        <div className="flex gap-2">
+          <input
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            placeholder="Token resi"
+            className={`${INPUT_CLASS} font-mono text-xs`}
+          />
+          <button type="submit" className={`${BUTTON_PRIMARY} shrink-0`}>
+            Buka
+          </button>
+        </div>
       </form>
-    </div>
+    </Card>
   )
 }
 
@@ -146,11 +201,11 @@ export function StatusPoll({
           headers: { 'X-Receipt-Token': token ?? '' },
         })
         if (response.status === 401) {
-          setError('token resi tidak cocok')
+          setError('Token resi tidak cocok.')
           return
         }
         if (response.status === 404) {
-          setError('kiriman tidak ditemukan')
+          setError('Kiriman tidak ditemukan.')
           return
         }
         if (!response.ok) {
@@ -186,14 +241,26 @@ export function StatusPoll({
   }, [refId, token])
 
   if (!token) {
-    return <TokenGate onToken={setToken} />
+    return (
+      <div className="mx-auto w-full max-w-3xl px-5 py-14">
+        <TokenGate
+          refId={refId}
+          onToken={(value) => {
+            storeReceiptToken(refId, value)
+            setToken(value)
+          }}
+        />
+      </div>
+    )
   }
   if (error) {
     return (
-      <div className="space-y-4 pt-4">
-        <p className="text-bad">{error}.</p>
-        <Link href="/cek" className="underline underline-offset-4">
-          ← cek tautan lain
+      <div className="mx-auto w-full max-w-3xl space-y-4 px-5 py-14">
+        <p className="rounded-lg bg-bad-tint px-4 py-3 text-sm text-bad">
+          {error}
+        </p>
+        <Link href="/cek" className="text-sm text-accent hover:underline">
+          Cek tautan lain
         </Link>
       </div>
     )
@@ -206,20 +273,23 @@ export function StatusPoll({
     screening.state === 'processing'
 
   return (
-    <div className="space-y-8 pb-8">
-      {isNew && status && <ReceiptBanner token={token} />}
+    <div className="mx-auto w-full max-w-3xl space-y-8 px-5 py-14">
+      {isNew && <ReceiptBanner refId={refId} token={token} />}
 
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-mono text-xs text-muted">{refId}</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            {status?.status_label.toLowerCase() ?? 'memuat…'}
+          <p className="font-mono text-xs text-faint">{refId}</p>
+          <h1 className="mt-1 font-display text-3xl font-bold tracking-[-0.02em]">
+            {status?.status_label ?? 'Memuat…'}
           </h1>
         </div>
         {status && (
-          <p className="text-xs text-muted">
-            dikirim {formatDateTime(status.created_at)}
-          </p>
+          <div className="flex flex-col items-end gap-1.5">
+            <StateBadge state={status.state} />
+            <p className="text-xs text-faint">
+              dikirim {formatDateTime(status.created_at)}
+            </p>
+          </div>
         )}
       </div>
 
@@ -228,32 +298,49 @@ export function StatusPoll({
       {screening && !running && <ScreeningResult screening={screening} />}
 
       {status?.state === 'published' && (
-        <p className="border border-ink p-4 text-sm">
-          moderator menyetujui kiriman ini dan sudah masuk{' '}
-          <Link href="/peluang" className="underline underline-offset-4">
-            katalog
-          </Link>
-          .
-        </p>
+        <Card className="border-good/30 bg-good-tint/40 p-5">
+          <p className="text-sm font-medium text-good">
+            Moderator menyetujui kiriman ini.
+          </p>
+          <p className="mt-1 text-sm text-body">
+            Sudah masuk{' '}
+            <Link href="/peluang" className="text-accent hover:underline">
+              katalog
+            </Link>{' '}
+            sebagai peluang terverifikasi.
+          </p>
+        </Card>
       )}
       {status?.state === 'review_pending' && !running && (
-        <p className="text-xs text-muted">
-          kiriman ini juga tampil publik di{' '}
-          <Link href={`/antrean/${refId}`} className="underline underline-offset-4">
+        <p className="text-xs leading-5 text-faint">
+          Kiriman ini juga tampil publik di{' '}
+          <Link
+            href={`/antrean/${refId}`}
+            className="text-accent hover:underline"
+          >
             antrean
           </Link>{' '}
           sambil menunggu verifikasi moderator.
         </p>
       )}
       {status?.needs_more_evidence && (
-        <p className="border border-line p-4 text-sm text-muted">
-          moderator meminta bukti tambahan. kirim ulang lewat{' '}
-          <Link href="/cek" className="underline underline-offset-4">
-            cek info
-          </Link>{' '}
-          dengan bukti yang diminta.
-        </p>
+        <Card className="border-warn/30 bg-warn-tint/40 p-5">
+          <p className="text-sm font-medium text-warn-ink">
+            Moderator meminta bukti tambahan.
+          </p>
+          <p className="mt-1 text-sm text-body">
+            Tidak ada kanal unggah ulang. Kirim informasi baru lewat{' '}
+            <Link href="/cek" className="text-accent hover:underline">
+              formulir cek
+            </Link>{' '}
+            dengan bukti yang diminta.
+          </p>
+        </Card>
       )}
+      <p className="text-xs leading-5 text-faint">
+        Halaman ini satu-satunya saluran pembaruan, tidak ada email atau
+        notifikasi.
+      </p>
     </div>
   )
 }
