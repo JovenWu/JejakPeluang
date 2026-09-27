@@ -1,61 +1,64 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import type { FormEvent, JSX } from 'react'
-import { useState } from 'react'
+import { type FormEvent, type ReactNode, useState } from 'react'
 
-import { storeReceiptToken } from './check-form'
-import { BUTTON_PRIMARY, Card, CardHeader, INPUT_CLASS } from './ui'
+import { normalizeRef, saveReceipt } from '@/lib/receipt'
 
-export function StatusLookup(): JSX.Element {
+export function StatusLookup(): ReactNode {
   const router = useRouter()
   const [ref, setRef] = useState('')
   const [token, setToken] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  function onSubmit(event: FormEvent<HTMLFormElement>): void {
+  function submit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
-    const cleanRef = ref.trim().toUpperCase()
-    const cleanToken = token.trim()
-    if (!cleanRef || !cleanToken) {
+    if (!ref.trim() || !token.trim()) {
       setError('Isi nomor rujukan dan token resi.')
       return
     }
-    storeReceiptToken(cleanRef, cleanToken)
-    router.push(`/cek/${cleanRef}`)
+    const normalized = normalizeRef(ref)
+    saveReceipt(normalized, token.trim(), false)
+    router.push(`/cek/${normalized}`)
   }
 
   return (
-    <Card>
-      <CardHeader eyebrow="Buka kiriman" />
-      <form onSubmit={onSubmit} className="space-y-5 p-5 sm:p-6">
-        <label className="block">
-          <span className="text-xs font-semibold">Nomor rujukan</span>
-          <input
-            value={ref}
-            onChange={(event) => setRef(event.target.value)}
-            placeholder="JP-…"
-            className={`${INPUT_CLASS} mt-2 font-mono`}
-          />
+    <form onSubmit={submit} noValidate className="space-y-5">
+      <div>
+        <label htmlFor="ref" className="mb-1.5 block text-sm font-semibold">
+          Nomor rujukan
         </label>
-        <label className="block">
-          <span className="text-xs font-semibold">Token resi</span>
-          <input
-            value={token}
-            onChange={(event) => setToken(event.target.value)}
-            placeholder="Token dari layar penerimaan"
-            className={`${INPUT_CLASS} mt-2 font-mono text-xs`}
-          />
+        <input
+          id="ref"
+          className="field font-mono uppercase"
+          placeholder="JP-XXXXXXXX"
+          autoComplete="off"
+          spellCheck={false}
+          value={ref}
+          onChange={(event) => setRef(event.target.value)}
+        />
+      </div>
+      <div>
+        <label htmlFor="token" className="mb-1.5 block text-sm font-semibold">
+          Token resi
         </label>
-        {error && (
-          <p className="rounded-lg bg-bad-tint px-4 py-3 text-sm text-bad">
-            {error}
-          </p>
-        )}
-        <button type="submit" className={BUTTON_PRIMARY}>
-          Lihat status
-        </button>
-      </form>
-    </Card>
+        <input
+          id="token"
+          className="field font-mono"
+          autoComplete="off"
+          spellCheck={false}
+          value={token}
+          onChange={(event) => setToken(event.target.value)}
+        />
+      </div>
+      {error ? (
+        <p role="alert" className="text-sm font-medium text-bad">
+          {error}
+        </p>
+      ) : null}
+      <button type="submit" className="btn btn-primary">
+        Lihat status
+      </button>
+    </form>
   )
 }

@@ -2,7 +2,7 @@
 
 Instant AI fact-check for Indonesian opportunity posts, plus a national catalogue of verified scholarships, internships, and competitions. Every catalogue entry is reviewed by a human moderator and linked to its original source.
 
-Public catalogue + incoming feed + controlled intake — Next.js Bahasa Indonesia UI (`apps/web`), FastAPI + PostgreSQL backend (`services/backend`), shared OpenAPI types (`packages/contracts`), and a Playwright end-to-end flow (`tests/e2e`). A guest submission immediately gets an AI check (Tavily discovery -> SSRF-hardened fetch -> OpenRouter extraction/comparison -> TypeSafe Jev typed judgments): the receipt-token status endpoint returns the sanitized result as soon as the run completes, and the submission joins the public `GET /api/v1/opportunities/incoming` feed marked `verification: 'ai_checked'` until a moderator decides. The AI never publishes catalogue listings and never emits scam/safe verdicts; only a moderator's approval promotes an item into the catalogue as `verification: 'moderator_verified'`.
+Public catalogue + incoming feed + controlled intake — Next.js Bahasa Indonesia UI (`apps/web`), FastAPI + PostgreSQL backend (`services/backend`), and shared OpenAPI types (`packages/contracts`). A guest submission immediately gets an AI check (Tavily discovery -> SSRF-hardened fetch -> OpenRouter extraction/comparison -> TypeSafe Jev typed judgments): the receipt-token status endpoint returns the sanitized result as soon as the run completes, and the submission joins the public `GET /api/v1/opportunities/incoming` feed marked `verification: 'ai_checked'` until a moderator decides. The AI never publishes catalogue listings and never emits scam/safe verdicts; only a moderator's approval promotes an item into the catalogue as `verification: 'moderator_verified'`.
 
 ## Prerequisites
 
@@ -35,6 +35,17 @@ cd services/backend && uv run alembic upgrade head && uv run uvicorn app.main:ap
 pnpm --filter @jejakpeluang/web dev   # API_INTERNAL_ORIGIN unset → rewrites fall back to http://localhost:8000
 ```
 
+### Web UI routes
+
+| Route | Who | What |
+|---|---|---|
+| `/` | guest | Check form (link and/or up to 3 files) + live feed/catalogue previews |
+| `/cek/[ref]` | guest | One-time receipt + polled AI result; token lives in `sessionStorage` or the `#token=` fragment, never the query string |
+| `/status` | guest | Reopen a submission with ref + receipt token |
+| `/antrean`, `/antrean/[ref]` | public | AI-checked submissions awaiting review (dashed "belum ditinjau" stamp) |
+| `/katalog`, `/katalog/[slug]` | public | Moderator-verified listings, anonymous report form |
+| `/moderator/masuk`, `/moderator`, `/moderator/[id]` | moderator | Login, queue, evidence + decision form |
+
 Regenerate the shared contract types after the API schema changes (`scripts/export_openapi.py` refreshes `packages/contracts/openapi.json`):
 
 ```sh
@@ -45,7 +56,7 @@ pnpm --filter @jejakpeluang/contracts generate
 
 Environment variables the API reads (all ship with dev-only defaults; set real values anywhere else):
 
-- `UPLOAD_DIR` — where staged guest uploads live (`./uploads` locally, `/data/uploads` in the dev compose stack, backed by the `uploads` named volume). Uploads are never served by the web container; moderators stream them through `GET /api/v1/moderation/submissions/{id}/uploads/{upload_id}`.
+- `UPLOAD_DIR` — where staged guest uploads live (`./uploads` locally, `/data/uploads` in the dev compose stack, backed by the `uploads` named volume). Uploads are never served publicly; moderators stream them through `GET /api/v1/moderation/submissions/{id}/uploads/{upload_id}`.
 - `AUTH_SECRET` — signs fastapi-users reset/verify tokens.
 - `COOKIE_SECURE` — `false` by default so the session cookie works over local http; set `true` behind https.
 - `RATE_LIMIT_SALT` — salts the client-net and login-attempt hash keys so IPs/emails are never stored raw.
@@ -76,6 +87,15 @@ submission) executes `run_screening` idempotently by run id:
    requires all candidate IPs to be public, pins the connection to the
    validated IP (Host header + SNI preserved), follows redirects only after
    re-validating each destination, and caps response size/redirects/timeouts.
+   Pages that turn out to be client-rendered shells (React/Vue mount
+   points, `<noscript>` "enable JavaScript" pages) are re-fetched through
+   the `renderer` service (`app/renderer.py`, headless Chromium via
+   Playwright). The browser has no network of its own: every request it
+   makes is served through the same SSRF-hardened fetcher, and Chromium
+   points at a dead proxy so anything un-intercepted fails. The renderer
+   sits on its own compose network (only the worker can reach it) with no
+   secrets, read-only root, and all capabilities dropped. Unset
+   `RENDERER_URL` and the worker falls back to reporting `js_required`.
 5. **Compare** — OpenRouter emits per-field `supported/conflicting/
    not_found/unreadable` verdicts with short verbatim quotes.
 6. **Judge** — TypeSafe Jev answers typed questions per fetched page
@@ -155,9 +175,8 @@ JP_LIVE_TESTS=1 uv run pytest -m live -q
 # full-stack smoke test (compose stack up + migrated):
 docker compose --env-file infra/.env -f infra/compose.dev.yml exec -T api \
     uv run --no-sync python scripts/e2e_check.py
-pnpm --filter @jejakpeluang/web test        # web component tests
+pnpm --filter @jejakpeluang/web test        # web unit tests
+pnpm --filter @jejakpeluang/web typecheck   # tsc --noEmit
 pnpm --filter @jejakpeluang/web lint        # eslint
 pnpm --filter @jejakpeluang/web build       # production build
-pnpm --filter @jejakpeluang/e2e exec playwright install chromium   # one-time
-pnpm --filter @jejakpeluang/e2e test:e2e    # needs the compose stack up
 ```

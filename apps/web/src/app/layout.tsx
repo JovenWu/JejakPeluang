@@ -1,44 +1,47 @@
-import type { Metadata } from 'next'
-import { Fraunces, Inter, JetBrains_Mono } from 'next/font/google'
-import type { JSX, ReactNode } from 'react'
-
-import { SiteFooter } from '@/components/site-footer'
-import { SiteHeader } from '@/components/site-header'
-
 import './globals.css'
 
-const sans = Inter({
+import type { Metadata, Viewport } from 'next'
+import { IBM_Plex_Mono, Plus_Jakarta_Sans } from 'next/font/google'
+import type { ReactNode } from 'react'
+
+const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-jakarta',
   display: 'swap',
 })
-const display = Fraunces({
+
+const plexMono = IBM_Plex_Mono({
   subsets: ['latin'],
-  variable: '--font-fraunces',
-  display: 'swap',
-})
-const mono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-jbmono',
+  weight: ['400', '500', '600'],
+  variable: '--font-plex-mono',
   display: 'swap',
 })
 
 export const metadata: Metadata = {
   title: {
-    default: 'JejakPeluang',
+    default: 'JejakPeluang · Cek dulu sebelum daftar',
     template: '%s · JejakPeluang',
   },
   description:
-    'Cek peluang beasiswa, magang, dan lomba. AI mencari sumber resmi dan membandingkan detailnya, moderator memutuskan.',
+    'Tempel tautan atau unggah poster beasiswa, magang, atau lomba. AI mencocokkan isinya dengan sumber resmi dalam hitungan detik; moderator memverifikasi sebelum masuk katalog.',
 }
 
-export default function RootLayout({ children }: { children: ReactNode }): JSX.Element {
+export const viewport: Viewport = {
+  themeColor: '#f4f3ef',
+}
+
+interface Props {
+  children: ReactNode
+}
+
+export default function RootLayout({ children }: Props): ReactNode {
   return (
-    <html lang="id" className={`${sans.variable} ${display.variable} ${mono.variable}`}>
-      <body className="flex min-h-screen flex-col font-sans text-sm leading-6 text-ink">
-        <SiteHeader />
-        <main className="flex-1">{children}</main>
-        <SiteFooter />
+    <html lang="id" className={`${jakarta.variable} ${plexMono.variable}`}>
+      <body className="antialiased">
+        <a href="#konten" className="skip-link">
+          Langsung ke konten
+        </a>
+        {children}
       </body>
     </html>
   )

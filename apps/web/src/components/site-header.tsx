@@ -1,69 +1,39 @@
-'use client'
-
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import type { JSX } from 'react'
+import type { ReactNode } from 'react'
 
-const LINKS = [
-  { href: '/peluang', label: 'Katalog' },
-  { href: '/cek', label: 'Cek Peluang' },
-  { href: '/status', label: 'Cek Status' },
-  { href: '/antrean', label: 'Antrean' },
-]
+import { NavLinks } from './nav-links'
 
-function LogoMark(): JSX.Element {
+export function Wordmark(): ReactNode {
   return (
-    <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-accent">
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="white"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-[17px] w-[17px]"
-        aria-hidden="true"
+    <span className="inline-flex items-center gap-2.5">
+      <span
+        aria-hidden
+        className="grid size-7 -rotate-3 place-items-center rounded-[3px] border-2 border-stamp font-mono text-[0.625rem] font-bold tracking-tight text-stamp"
       >
-        <path d="M4 12l4.5 4.5L20 6" />
-        <path d="M8.5 20l2-2" opacity="0.55" />
-      </svg>
+        JP
+      </span>
+      <span className="text-[1.0625rem] font-extrabold tracking-[-0.02em] text-ink">
+        Jejak<span className="font-medium text-ink-2">Peluang</span>
+      </span>
     </span>
   )
 }
 
-export function SiteHeader(): JSX.Element {
-  const pathname = usePathname()
+const LINKS = [
+  { href: '/', label: 'Cek peluang', short: 'Cek' },
+  { href: '/antrean', label: 'Antrean', short: 'Antrean' },
+  { href: '/katalog', label: 'Katalog', short: 'Katalog' },
+  { href: '/status', label: 'Status kiriman', short: 'Status' },
+]
+
+export function SiteHeader(): ReactNode {
   return (
-    <header className="border-b border-line bg-paper">
-      <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between px-5">
-        <Link href="/" className="flex items-center gap-2.5">
-          <LogoMark />
-          <span className="font-display text-lg font-extrabold tracking-tight text-ink">
-            JejakPeluang
-          </span>
+    <header className="border-b border-rule bg-paper">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
+        <Link href="/" className="-m-1 rounded-sm p-1" aria-label="JejakPeluang, beranda">
+          <Wordmark />
         </Link>
-        <nav className="flex items-center gap-6">
-          {LINKS.map((link) => {
-            const active =
-              link.href === '/peluang'
-                ? pathname?.startsWith('/peluang')
-                : pathname === link.href ||
-                  pathname?.startsWith(`${link.href}/`)
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={
-                  active
-                    ? 'text-sm font-semibold text-accent'
-                    : 'text-sm text-body hover:text-ink'
-                }
-              >
-                {link.label}
-              </Link>
-            )
-          })}
-        </nav>
+        <NavLinks links={LINKS} />
       </div>
     </header>
   )
