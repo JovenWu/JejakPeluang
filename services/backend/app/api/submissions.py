@@ -8,10 +8,12 @@ from sqlalchemy.orm import Session
 
 from app.db import get_session
 from app.models.intake import Submission
-from app.schemas.submission import SubmissionCreated, SubmissionStatus
+from app.schemas.submission import (DedupeCheck, SubmissionCreated,
+    SubmissionStatus)
 from app.security import RateLimiter, client_net_hash, get_rate_limiter
 from app.services.submissions import (MAX_CONTEXT_LENGTH, FileScanner,
-    SubmissionError, get_scanner, intake_submission, status_view)
+    SubmissionError, find_duplicate, get_scanner, intake_submission,
+    status_view, validate_url)
 
 router = APIRouter(prefix='/submissions', tags=['submissions'])
 
@@ -39,6 +41,28 @@ def create_submission(request: Request,
     return SubmissionCreated(ref=submission.ref,
         receipt_token=receipt_token, status=submission.state,
         status_url=f'/api/v1/submissions/{submission.ref}')
+
+
+@router.get('/check', response_model=DedupeCheck)
+def check_duplicate(url: str, request: Request,
+    session: Session = Depends(get_session),
+    limiter: RateLimiter = Depends(get_rate_limiter)):
+    """Pre-submit duplicate lookup on the normalized URL."""
+    net_hash = client_net_hash(request)
+    if not limiter.check(f'check:{net_hash}', limit=30,
+            window_seconds=3600):
+        raise HTTPException(status_code=429, detail='Too many requests')
+    try:
+        validated = validate_url(url)
+    except SubmissionError as exc:
+        raise HTTPException(status_code=exc.status_code,
+            detail=exc.detail)
+    if validated is None:
+        raise HTTPException(status_code=422, detail='url is invalid')
+    match = find_duplicate(session, validated)
+    if match is None:
+        return DedupeCheck(duplicate=False)
+    return DedupeCheck(duplicate=True, **match)
 
 
 @router.get('/{ref}', response_model=SubmissionStatus)

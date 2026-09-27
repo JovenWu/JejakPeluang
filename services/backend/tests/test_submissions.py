@@ -377,6 +377,65 @@ def test_status_without_run_has_null_screening(client, session):
     assert response.json()['screening'] is None
 
 
+def test_check_endpoint_no_duplicate(client):
+    response = client.get('/api/v1/submissions/check',
+        params={'url': 'https://belum-ada.id/program'})
+    assert response.status_code == 200
+    assert response.json()['duplicate'] is False
+
+
+def test_check_rejects_malformed_url(client):
+    response = client.get('/api/v1/submissions/check',
+        params={'url': 'notaurl'})
+    assert response.status_code == 422
+
+
+def test_check_matches_pending_submission_normalized(client, session):
+    submission, _ = make_submission(session, ref='JP-PENDING01')
+    submission.state = 'review_pending'
+    submission.submitted_url = (
+        'https://Contoh.ID/program/?utm_source=ig#frag')
+    session.commit()
+    make_run(session, submission, result=SCREENING_RESULT)
+    response = client.get('/api/v1/submissions/check',
+        params={'url': 'https://contoh.id/program'})
+    body = response.json()
+    assert body['duplicate'] is True
+    assert body['kind'] == 'incoming'
+    assert body['ref'] == 'JP-PENDING01'
+    assert body['screening']['outcome'] == 'complete'
+
+
+def test_check_matches_published_listing(client, session, make_entry):
+    make_entry('peluang-unik')
+    response = client.get('/api/v1/submissions/check',
+        params={'url': 'https://EXAMPLE.org/notice/'})
+    body = response.json()
+    assert body['duplicate'] is True
+    assert body['kind'] == 'listing'
+    assert body['slug'] == 'peluang-unik'
+
+
+def test_check_ignores_queued_submission(client, session):
+    submission, _ = make_submission(session)
+    submission.submitted_url = 'https://baru-saja.id/x'
+    session.commit()
+    response = client.get('/api/v1/submissions/check',
+        params={'url': 'https://baru-saja.id/x'})
+    assert response.json()['duplicate'] is False
+
+
+def test_submit_duplicate_url_conflict(client, session, upload_dir):
+    submission, _ = make_submission(session)
+    submission.state = 'review_pending'
+    submission.submitted_url = 'https://sudah-ada.id/x?utm_medium=x'
+    session.commit()
+    response = post(client, data={'url': 'https://sudah-ada.id/x'})
+    assert response.status_code == 409
+    assert response.json()['detail']['error'] == 'duplicate'
+    assert response.json()['detail']['kind'] == 'incoming'
+
+
 def test_status_reports_needs_more_evidence(client, session, official_source):
     submission, token = make_submission(session)
     decision = ModerationDecision(source_evidence_id=official_source.id,

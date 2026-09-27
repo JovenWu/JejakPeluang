@@ -331,6 +331,89 @@
         "title": "DecisionView",
         "type": "object"
       },
+      "DedupeCheck": {
+        "description": "Pre-submit duplicate check. 'listing' points at a catalogue entry,\n'incoming' at a pending submission whose screening can be shown\nimmediately.",
+        "properties": {
+          "duplicate": {
+            "title": "Duplicate",
+            "type": "boolean"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "listing",
+                  "incoming"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "screening": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScreeningView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "duplicate"
+        ],
+        "title": "DedupeCheck",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2096,6 +2179,49 @@
           }
         },
         "summary": "Create Submission",
+        "tags": [
+          "submissions"
+        ]
+      }
+    },
+    "/api/v1/submissions/check": {
+      "get": {
+        "description": "Pre-submit duplicate lookup on the normalized URL.",
+        "operationId": "check_duplicate_api_v1_submissions_check_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "url",
+            "required": true,
+            "schema": {
+              "title": "Url",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DedupeCheck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Duplicate",
         "tags": [
           "submissions"
         ]

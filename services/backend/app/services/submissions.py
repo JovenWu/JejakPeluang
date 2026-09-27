@@ -8,14 +8,14 @@ from datetime import datetime, timedelta, timezone
 from os import environ
 from pathlib import Path
 from typing import BinaryIO, Protocol
-from urllib.parse import urlsplit
+from urllib.parse import (parse_qsl, urlencode, urlsplit, urlunsplit)
 from uuid import uuid4
 
 from pypdf import PdfReader
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.catalogue import ModerationDecision
+from app.models.catalogue import ModerationDecision, Opportunity
 from app.models.intake import JobOutbox, ScreeningRun, Submission, Upload
 
 MAX_FILES = 3
@@ -50,7 +50,7 @@ DEFAULT_STATUS_LABEL = 'Ditutup'
 class SubmissionError(Exception):
     """Domain rejection; the API layer maps it to HTTPException."""
 
-    def __init__(self, status_code: int, detail: str):
+    def __init__(self, status_code: int, detail):
         super().__init__(detail)
         self.status_code = status_code
         self.detail = detail
@@ -238,6 +238,56 @@ def stage_files(files, scanner: FileScanner) -> list[StagedUpload]:
     return staged
 
 
+TRACKING_PARAMS = frozenset({'fbclid', 'gclid', 'igshid'})
+
+
+def normalize_url(raw: str | None) -> str | None:
+    """Canonical URL for dedupe comparison: lowercase scheme/host, default
+    port stripped, fragment and tracking params dropped, no trailing
+    slash."""
+    if not raw:
+        return None
+    try:
+        parts = urlsplit(raw.strip())
+        host = (parts.hostname or '').lower()
+        port = parts.port
+    except ValueError:
+        return None
+    if not host:
+        return None
+    scheme = parts.scheme.lower() or 'https'
+    netloc = host + (f':{port}' if port and port not in (80, 443) else '')
+    path = parts.path.rstrip('/') or '/'
+    query = urlencode(sorted((k, v) for k, v in parse_qsl(parts.query)
+        if not k.lower().startswith('utm_')
+        and k.lower() not in TRACKING_PARAMS))
+    return urlunsplit((scheme, netloc, path, query, ''))
+
+
+def find_duplicate(session: Session, url: str | None) -> dict | None:
+    """Normalized-URL match against public rows: any opportunity's
+    source_url wins first, then a review_pending submission. Queued or
+    terminal submissions are ignored — decided content stays checkable via
+    the listing, and an in-flight queue window is too small to block on."""
+    target = normalize_url(url)
+    if target is None:
+        return None
+    for opportunity in session.scalars(select(Opportunity).where(
+            Opportunity.source_url.is_not(None))):
+        if normalize_url(opportunity.source_url) == target:
+            return {'kind': 'listing', 'slug': opportunity.slug,
+                'title': opportunity.title, 'status': opportunity.status}
+    pending = session.scalars(select(Submission).where(
+        Submission.state == 'review_pending',
+        Submission.submitted_url.is_not(None)))
+    for submission in pending:
+        if normalize_url(submission.submitted_url) == target:
+            return {'kind': 'incoming', 'ref': submission.ref,
+                'screening': screening_projection(
+                    _latest_run(session, submission))}
+    return None
+
+
 def _new_ref(session: Session) -> str:
     for _ in range(10):
         ref = REF_PREFIX + ''.join(
@@ -261,6 +311,10 @@ def intake_submission(session: Session, *, url, context, contact_email, files,
     uploads = [f for f in files if f.filename]
     if not submitted_url and not uploads:
         raise SubmissionError(422, 'Provide a url or at least one file')
+    if submitted_url:
+        duplicate = find_duplicate(session, submitted_url)
+        if duplicate is not None:
+            raise SubmissionError(409, {'error': 'duplicate', **duplicate})
     if len(uploads) > MAX_FILES:
         raise SubmissionError(422, 'At most 3 files per submission')
     staged = stage_files(uploads, scanner)

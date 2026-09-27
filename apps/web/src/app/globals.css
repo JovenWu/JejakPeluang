@@ -1,123 +1,37 @@
 @import "tailwindcss";
 
 @theme {
-  --color-paper: oklch(1 0 0);
-  --color-surface: oklch(0.984 0.005 155);
-  --color-ink: oklch(0.23 0.015 155);
-  --color-ink-soft: oklch(0.42 0.015 155);
-  --color-ink-faint: oklch(0.46 0.012 155);
-  --color-line: oklch(0.915 0.008 155);
-
-  --color-primary: oklch(0.55 0.145 150);
-  --color-primary-strong: oklch(0.47 0.125 150);
-  --color-primary-ink: oklch(0.4 0.1 150);
-  --color-primary-tint: oklch(0.965 0.028 150);
-  --color-primary-line: oklch(0.865 0.05 150);
-
-  --color-caution: oklch(0.66 0.12 80);
-  --color-caution-ink: oklch(0.42 0.085 72);
-  --color-caution-tint: oklch(0.965 0.045 90);
-  --color-caution-line: oklch(0.865 0.06 85);
-
-  --color-alert: oklch(0.5 0.15 27);
-  --color-alert-ink: oklch(0.44 0.12 27);
-  --color-alert-tint: oklch(0.965 0.02 27);
-  --color-alert-line: oklch(0.885 0.045 27);
-
-  --color-neutral-badge: oklch(0.957 0.006 150);
-  --color-neutral-badge-ink: oklch(0.4 0.012 150);
-  --color-neutral-badge-line: oklch(0.875 0.01 150);
-
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-space-grotesk), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-
-  --text-sm: 0.8rem;
-  --text-sm--line-height: 1.5;
-  --text-base: 1rem;
-  --text-base--line-height: 1.6;
-  --text-lg: 1.25rem;
-  --text-lg--line-height: 1.4;
-  --text-xl: 1.563rem;
-  --text-xl--line-height: 1.3;
-  --text-2xl: 1.953rem;
-  --text-2xl--line-height: 1.2;
-  --text-3xl: 2.441rem;
-  --text-3xl--line-height: 1.12;
-
-  --shadow-card: 0 1px 2px oklch(0.23 0.015 155 / 0.05), 0 6px 16px -8px oklch(0.23 0.015 155 / 0.12);
-
-  --animate-card-in: card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
-
-  @keyframes card-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
+  --color-ink: #111111;
+  --color-paper: #fafafa;
+  --color-muted: #6f6f6f;
+  --color-line: #e4e4e4;
+  --color-faint: #f0f0f0;
+  --color-good: #166534;
+  --color-bad: #b91c1c;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
-@layer base {
-  body {
-    @apply bg-paper font-sans text-base text-ink antialiased;
-    text-rendering: optimizeLegibility;
-  }
-
-  h1,
-  h2,
-  h3 {
-    @apply font-display font-semibold text-ink;
-    letter-spacing: -0.02em;
-    text-wrap: balance;
-  }
-
-  ::selection {
-    background: var(--color-primary-tint);
-    color: var(--color-primary-ink);
-  }
-
-  :focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
 }
 
-@layer utilities {
-  .measure {
-    max-width: 68ch;
-  }
-
-  .skip-link {
-    position: absolute;
-    left: 1rem;
-    top: 1rem;
-    z-index: 50;
-    border-radius: 0.5rem;
-    background: var(--color-primary-ink);
-    color: var(--color-paper);
-    padding: 0.5rem 0.75rem;
-    font-size: var(--text-sm);
-    font-weight: 500;
-    transform: translateY(-4rem);
-    transition: transform 150ms ease-out;
-  }
-
-  .skip-link:focus-visible {
-    transform: translateY(0);
-  }
+::selection {
+  background: var(--color-ink);
+  color: var(--color-paper);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-delay: 0ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+input, textarea, select, button {
+  font: inherit;
+  color: inherit;
+}
+
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+.spin-slow {
+  animation: spin-slow 0.9s linear infinite;
 }

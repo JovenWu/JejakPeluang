@@ -60,3 +60,16 @@ class IncomingItem(BaseModel):
 class IncomingListResponse(BaseModel):
     items: list[IncomingItem]
     total: int
+
+
+class DedupeCheck(BaseModel):
+    """Pre-submit duplicate check. 'listing' points at a catalogue entry,
+    'incoming' at a pending submission whose screening can be shown
+    immediately."""
+    duplicate: bool
+    kind: Literal['listing', 'incoming'] | None = None
+    slug: str | None = None
+    title: str | None = None
+    status: str | None = None
+    ref: str | None = None
+    screening: ScreeningView | None = None

@@ -31,8 +31,11 @@ from app.models.auth import User  # noqa: E402
 API_BASE = environ.get('API_BASE', 'http://127.0.0.1:8000')
 MOD_EMAIL = 'e2e-moderator@jejakpeluang.local'
 MOD_PASSWORD = 'e2e-' + uuid4().hex
+# A nonce query param keeps each run's URL unique so the intake dedupe
+# guard never conflicts with a previous run's pending/published row.
 SUBMIT_URL = environ.get('E2E_SUBMIT_URL',
-    'https://beasiswaunggulan.kemdikbud.go.id/')
+    'https://beasiswaunggulan.kemdikbud.go.id/'
+    f'?e2e={uuid4().hex[:8]}')
 POLL_TIMEOUT = float(environ.get('E2E_POLL_TIMEOUT', '240'))
 
 

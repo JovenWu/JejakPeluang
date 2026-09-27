@@ -1,51 +1,76 @@
-import type { components } from '@jejakpeluang/contracts/generated'
+import type { Category } from './api'
 
-export type Category = components['schemas']['OpportunitySummary']['category']
-export type Status = components['schemas']['OpportunitySummary']['status']
-
-const CATEGORY_LABELS: Record<Category, string> = {
-  scholarship: 'Beasiswa',
-  internship: 'Magang',
-  competition: 'Kompetisi',
+export const CATEGORY_LABELS: Record<Category, string> = {
+  scholarship: 'beasiswa',
+  internship: 'magang',
+  competition: 'lomba',
 }
 
-const DEADLINE_SOON_DAYS = 14
-const DAY_MS = 86_400_000
-
-export function categoryLabel(category: Category): string {
-  return CATEGORY_LABELS[category]
+export const VERDICT_LABELS: Record<string, string> = {
+  supported: 'cocok',
+  conflicting: 'berbeda',
+  not_found: 'tidak ditemukan',
+  unreadable: 'tak terbaca',
 }
 
-export function formatDate(value: string): string {
+export const OUTCOME_LABELS: Record<string, string> = {
+  complete: 'pemeriksaan selesai',
+  provider_unavailable: 'layanan pemeriksa sedang sibuk',
+  manual_review_required: 'perlu tinjauan manual',
+  no_public_source: 'sumber resmi tidak ditemukan',
+  no_content: 'konten tidak dapat dibaca',
+}
+
+export const FIELD_LABELS: Record<string, string> = {
+  title: 'judul',
+  issuer: 'penyelenggara',
+  deadline: 'batas akhir',
+  category: 'kategori',
+  region: 'wilayah',
+  eligibility: 'syarat',
+  fees: 'biaya',
+  requested_data: 'data diminta',
+  source_hint: 'petunjuk sumber',
+}
+
+export const REPORT_CATEGORIES: Record<string, string> = {
+  scam_suspect: 'dicurigai penipuan',
+  deadline_wrong: 'batas waktu salah',
+  link_broken: 'tautan rusak',
+  info_incorrect: 'info tidak akurat',
+  other: 'lainnya',
+}
+
+export function formatDate(value: string | null | undefined): string {
+  if (!value) {
+    return ''
+  }
   return new Intl.DateTimeFormat('id-ID', {
-    dateStyle: 'medium',
-    timeZone: 'UTC',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
   }).format(new Date(value))
 }
 
-export function formatDeadline(deadline: string): string {
-  return formatDate(`${deadline}T00:00:00Z`)
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) {
+    return ''
+  }
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
 }
 
-export function daysUntilDeadline(deadline: string): number {
-  return Math.ceil((Date.parse(`${deadline}T00:00:00Z`) - Date.now()) / DAY_MS)
-}
-
-export function isDeadlineSoon(deadline: string | null, status: Status): boolean {
-  if (deadline === null || status !== 'published') {
-    return false
+export function hostOf(url: string | null | undefined): string {
+  if (!url) {
+    return ''
   }
-  const days = daysUntilDeadline(deadline)
-  return days >= 0 && days <= DEADLINE_SOON_DAYS
-}
-
-export function deadlineCountdown(deadline: string): string {
-  const days = daysUntilDeadline(deadline)
-  if (days <= 0) {
-    return 'hari ini'
+  try {
+    return new URL(url).hostname
+  } catch {
+    return url
   }
-  if (days === 1) {
-    return 'besok'
-  }
-  return `${days} hari lagi`
 }

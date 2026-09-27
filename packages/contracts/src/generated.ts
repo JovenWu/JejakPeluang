@@ -147,6 +147,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/opportunities/incoming": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Incoming Feed
+         * @description Public feed of AI-checked submissions awaiting moderator review.
+         *
+         *     Every row is an unmoderated submission — 'ai_checked' must never be
+         *     presented as a trust badge; it upgrades to 'moderator_verified' only
+         *     when a human approves it into the catalogue.
+         */
+        get: operations["list_incoming_feed_api_v1_opportunities_incoming_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/opportunities/incoming/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Incoming Item */
+        get: operations["get_incoming_item_api_v1_opportunities_incoming__ref__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/opportunities/{slug}": {
         parameters: {
             query?: never;
@@ -198,6 +239,26 @@ export interface paths {
         put?: never;
         /** Create Submission */
         post: operations["create_submission_api_v1_submissions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/submissions/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Duplicate
+         * @description Pre-submit duplicate lookup on the normalized URL.
+         */
+        get: operations["check_duplicate_api_v1_submissions_check_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -363,10 +424,59 @@ export interface components {
             /** Status */
             status: string;
         };
+        /**
+         * DedupeCheck
+         * @description Pre-submit duplicate check. 'listing' points at a catalogue entry,
+         *     'incoming' at a pending submission whose screening can be shown
+         *     immediately.
+         */
+        DedupeCheck: {
+            /** Duplicate */
+            duplicate: boolean;
+            /** Kind */
+            kind?: ("listing" | "incoming") | null;
+            /** Ref */
+            ref?: string | null;
+            screening?: components["schemas"]["ScreeningView"] | null;
+            /** Slug */
+            slug?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Title */
+            title?: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * IncomingItem
+         * @description Public feed row: an AI-checked submission awaiting moderation.
+         */
+        IncomingItem: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Ref */
+            ref: string;
+            screening: components["schemas"]["ScreeningView"] | null;
+            /** Submitted Url */
+            submitted_url: string | null;
+            /**
+             * Verification
+             * @constant
+             */
+            verification: "ai_checked";
+        };
+        /** IncomingListResponse */
+        IncomingListResponse: {
+            /** Items */
+            items: components["schemas"]["IncomingItem"][];
+            /** Total */
+            total: number;
         };
         /** OpportunityDetail */
         OpportunityDetail: {
@@ -408,6 +518,12 @@ export interface components {
              * @enum {string}
              */
             trust_basis: "public_source" | "issuer_confirmed_private";
+            /**
+             * Verification
+             * @default moderator_verified
+             * @enum {string}
+             */
+            verification: "ai_checked" | "moderator_verified";
             /**
              * Verified At
              * Format: date-time
@@ -455,6 +571,12 @@ export interface components {
              * @enum {string}
              */
             trust_basis: "public_source" | "issuer_confirmed_private";
+            /**
+             * Verification
+             * @default moderator_verified
+             * @enum {string}
+             */
+            verification: "ai_checked" | "moderator_verified";
             /**
              * Verified At
              * Format: date-time
@@ -530,6 +652,13 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** ScreeningErrorView */
+        ScreeningErrorView: {
+            /** Kind */
+            kind: string | null;
+            /** Stage */
+            stage: string | null;
+        };
         /** ScreeningRunMeta */
         ScreeningRunMeta: {
             /**
@@ -558,6 +687,47 @@ export interface components {
             schema_version: string | null;
             /** State */
             state: string;
+        };
+        /**
+         * ScreeningView
+         * @description Guest/public-safe projection of a screening run — extracted fields,
+         *     per-field source verdicts, and the official-source signal. No
+         *     submission_text, evidence bodies, or provider internals.
+         */
+        ScreeningView: {
+            /** Ai Source Match */
+            ai_source_match: boolean | null;
+            /** Errors */
+            errors: components["schemas"]["ScreeningErrorView"][];
+            /** Extracted */
+            extracted: {
+                [key: string]: unknown;
+            } | null;
+            /** Field Verdicts */
+            field_verdicts: {
+                [key: string]: unknown;
+            } | null;
+            /** Finished At */
+            finished_at: string | null;
+            /** Outcome */
+            outcome: string | null;
+            /** Sources */
+            sources: components["schemas"]["SourceCheck"][];
+            /** State */
+            state: string;
+        };
+        /**
+         * SourceCheck
+         * @description One fetched source page and whether Jev judged it the issuer's
+         *     official listing. Body text is never exposed publicly.
+         */
+        SourceCheck: {
+            /** Official */
+            official: boolean | null;
+            /** Status */
+            status: number | null;
+            /** Url */
+            url: string;
         };
         /** SubmissionCreated */
         SubmissionCreated: {
@@ -630,6 +800,7 @@ export interface components {
             needs_more_evidence: boolean;
             /** Ref */
             ref: string;
+            screening?: components["schemas"]["ScreeningView"] | null;
             /** State */
             state: string;
             /** Status Label */
@@ -939,6 +1110,69 @@ export interface operations {
             };
         };
     };
+    list_incoming_feed_api_v1_opportunities_incoming_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncomingListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_incoming_item_api_v1_opportunities_incoming__ref__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncomingItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_opportunity_api_v1_opportunities__slug__get: {
         parameters: {
             query?: never;
@@ -1025,6 +1259,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SubmissionCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_duplicate_api_v1_submissions_check_get: {
+        parameters: {
+            query: {
+                url: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DedupeCheck"];
                 };
             };
             /** @description Validation Error */
