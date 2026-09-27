@@ -3,9 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://jejakpeluang.joven.dev"><b>Demo langsung</b></a> ·
-  <a href="docs/operations.md">Dokumentasi operasional</a> ·
-  <a href="docs/backend-feature-surface.md">Referensi API</a>
+  <a href="https://jejakpeluang.joven.dev"><b>Demo langsung</b></a>
 </p>
 
 <p align="center">
